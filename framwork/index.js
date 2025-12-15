@@ -1,7 +1,4 @@
-import { getDevMode } from "./core/libs/fetch_config.js";
 
-const devMode = await getDevMode()
-console.log(devMode)
 let currentEffect = null
 
 export function createSignal(value) {

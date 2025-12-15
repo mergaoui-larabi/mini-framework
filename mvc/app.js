@@ -1,17 +1,27 @@
-import * as fm from "../framwork/index.js"
+import * as fm from "../framwork/core/dom/dom.js"
 
+const dom = {
+    tag: "div",
+    attributes: {},
+    children: [
+        {
+            tag: "span",
+            attributes: {},
+            children: []
+        },
+        {
+            tag: "span",
+            attributes: { style: "background-color: green;" },
+            children: [
+                "hoooooooooooooowa"
+            ]
+        },
+        ""
+    ]
+}
 
-const [count, setCount] = fm.createSignal(1);
+console.log("howa")
+const el = fm.domAbstracting(dom)
+console.log(el)
 
-const doubled = fm.computed(() => {
-    console.log("computed runs");
-    return count() * 2;
-});
-
-fm.effect(() => {
-    document.getElementById("out").textContent = doubled();
-});
-
-document.getElementById("btn").onclick = () => {
-    setCount(count() + 1);
-};
+document.body.append(el)
