@@ -16,5 +16,5 @@ for more details:
 - [event implementation](./event.md)
 
 ### TodoMVC
-    A small app made using this framwork to demonstrate the use of it,
-    also give the user a basic image of the framwork usecase.
+A small app made using this framwork to demonstrate the use of it,
+also give the user a basic image of the framwork usecase.
