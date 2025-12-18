@@ -1,27 +1,35 @@
-import * as fm from "../framwork/core/dom/dom.js"
+import * as fm from "../framwork/index.js"
+
+const [flag, setFlag] = fm.createSignal(true, "flag")
+const [a, setA] = fm.createSignal(1, "a")
+const [b, setB] = fm.createSignal(0, "b")
+
+function handleClick() {
+    setA(a() + 1);
+}
+
+fm.createEffect(() => {
+    setFlag(!flag)
+    console.log(flag() ? a() : b())
+})
+
 
 const dom = {
     tag: "div",
     attributes: {},
     children: [
+        `${a()}`,
         {
-            tag: "span",
-            attributes: {},
-            children: []
-        },
-        {
-            tag: "span",
-            attributes: { style: "background-color: green;" },
+            tag: "button",
+            attributes: {
+                onclick: handleClick
+            },
             children: [
-                "hoooooooooooooowa"
+                "+"
             ]
-        },
-        ""
+        }
     ]
 }
 
-console.log("howa")
 const el = fm.domAbstracting(dom)
-console.log(el)
-
 document.body.append(el)
