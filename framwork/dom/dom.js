@@ -23,6 +23,7 @@ export function domAbstracting(node) {
 
     if (node.attributes) {
         for (const [key, value] of Object.entries(node.attributes)) {
+            // must implement event delegation
             if (key.startsWith("on") && typeof value === "function") {
                 const eventName = key.toLowerCase().substring(2);
                 el.addEventListener(eventName, value);
