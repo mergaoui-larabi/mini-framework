@@ -1,17 +1,3 @@
-// dom main
-
-import { getDevMode } from "../libs/fetch_config.js";
-import { validateDomNode } from "./tags.js";
-import { valideHtmlNode } from "../libs/validate_html_node.js";
-
-const devMode = await getDevMode()
-
-const node = {
-    tag: "",
-    attributes: {},
-    children: []
-}
-
 export function domAbstracting(node) {
     if (!valideHtmlNode(node)) return
     if (devMode) if (!validateDomNode(node)) return
@@ -23,6 +9,7 @@ export function domAbstracting(node) {
 
     if (node.attributes) {
         for (const [key, value] of Object.entries(node.attributes)) {
+            // must implement event delegation
             if (key.startsWith("on") && typeof value === "function") {
                 const eventName = key.toLowerCase().substring(2);
                 el.addEventListener(eventName, value);
