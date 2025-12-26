@@ -11,7 +11,7 @@
 //** setMaxListeners(n) => Set the maximum number of listeners before a warning is shown (default = 10).
 //** getMaxListeners() => Get the current max listener limit.
 
-export class EventEmitter {
+class EventEmitter {
     static #EventEmitterKey = Symbol('EventEmitter constructor key');
     static instance = new EventEmitter(EventEmitter.#EventEmitterKey);
 
@@ -85,15 +85,8 @@ export class EventEmitter {
         if (regularSet && regularSet.size) {
             const regularListeners = [...regularSet];
             for (const fn of regularListeners) {
-                if (this.#STRICT_MODE) {
-                    try {
-                        fn(...args);
-                    } catch (error) {
-                        throw error;
-                    }
-                } else {
-                    fn(...args);
-                }
+                if (this.#STRICT_MODE) try { fn(...args); } catch (error) { throw error }
+                else try { fn(...args); } catch (error) { }
             }
         }
 
@@ -102,18 +95,12 @@ export class EventEmitter {
             this.#ONCE_REGISTRY.delete(event);
 
             for (const fn of onceListeners) {
-                if (this.#STRICT_MODE) {
-                    try {
-                        fn(...args);
-                    } catch (error) {
-                        throw error;
-                    }
-                } else {
-                    fn(...args);
-                }
+                if (this.#STRICT_MODE) try { fn(...args); } catch (error) { throw error; }
+                else try { fn(...args); } catch (error) { }
             }
         }
     }
+
 
     listeners = (event) => event ? this.#REGISTRY.get(event) : undefined
     onceListeners = (event) => event ? this.#ONCE_REGISTRY.get(event) : undefined
@@ -129,3 +116,5 @@ export class EventEmitter {
     setMaxListeners = (n) => this.#MAX_LISTENERS = n
     getMaxListeners = () => this.#MAX_LISTENERS
 }
+
+export const eventEmitter = EventEmitter.instance;
