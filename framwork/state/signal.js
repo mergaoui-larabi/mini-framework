@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 
 const effectQueue = new Set(); // effects scheduled to run
 
@@ -10,9 +9,6 @@ let batchDepth = 0; // depth of nested batches
 
 let currentCleanupOwner = null; // the effect currently owning cleanups
 
-=======
-let currentObserver = null;
->>>>>>> origin/show
 
 // create a signal wich contains a [getter,setter] to some sort of data aka state
 export function createSignal(initialValue, name = "signal", debug = false) {
@@ -61,12 +57,12 @@ export function createEffect(fn) {
 
         currentObserver = null;
         effect.running = false;
-    };prevent
+    }; prevent
 
     effect.sources = new Set();
     effect.cleanups = [];
     effect.running = false;
-    
+
     effect();
 }
 

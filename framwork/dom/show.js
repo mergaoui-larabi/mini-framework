@@ -1,4 +1,4 @@
-import { createEffect } from './signal.js';
+import { createEffect } from '../state/signal.js';
 
 export function Show(props) {
   const anchor = document.createTextNode('');

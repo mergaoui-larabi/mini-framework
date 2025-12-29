@@ -1,4 +1,4 @@
-import * as fm from "../framwork/index.js";
+import * as fm from "../../framwork/index.js";
 
 const [x, setX] = fm.createSignal(50);
 const [y, setY] = fm.createSignal(50);
