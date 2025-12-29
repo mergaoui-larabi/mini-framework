@@ -1,28 +1,30 @@
 import * as fm from "../framwork/index.js"
 
-const [a, setA] = fm.createSignal(1);
-const [b, setB] = fm.createSignal(2);
-
-const sum = fm.createMemo(() => {
-    console.log("memo recompute");
-    return a() + b();
-});
-
-fm.createEffect(() => {
-    console.log("effect sees:", sum());
-});
+const [count, setCount] = fm.createSignal(0, "count");
 
 
 
 function handleClick() {
-  // setFlag(!flag())
+    fm.untrack(() => {
+        setCount(count() + 1);
+    });
 }
+
+fm.createEffect(() => {
+  const id = setInterval(() => {
+    console.log("count is", count());
+  }, 1000);
+
+  fm.onCleanup(() => {
+    clearInterval(id);
+  });
+});
 
 const dom = {
     tag: "div",
     attributes: {},
     children: [
-        `${0}`,
+        () => count(),
         {
             tag: "button",
             attributes: {
@@ -38,11 +40,6 @@ const dom = {
 const el = fm.domAbstracting(dom)
 document.body.append(el)
 
-
-
-
-
-// const [count, setCount] = fm.createSignal(0);
 
 // let btn = document.createElement('button');
 // btn.textContent = 'Increment';

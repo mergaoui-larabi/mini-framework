@@ -1,6 +1,14 @@
-import { scheduleEffect } from "./flush.js";
 
-let currentObserver = null;
+const effectQueue = new Set(); // effects scheduled to run
+
+let currentObserver = null; // the effect currently being executed
+
+let isFlushing = false; // whether effects are being flushed
+
+let batchDepth = 0; // depth of nested batches
+
+let currentCleanupOwner = null; // the effect currently owning cleanups
+
 
 // create a signal wich contains a [getter,setter] to some sort of data aka state
 export function createSignal(initialValue, name = "signal", debug = false) {
@@ -37,14 +45,23 @@ export function createEffect(fn) {
         if (effect.running) return
         effect.running = true;
 
+        for (const cleanup of effect.cleanups) cleanup()
+        effect.cleanups.length = 0;
+
         cleanUp(effect);
+
         currentObserver = effect;
-        fn()
+        currentCleanupOwner = effect;
+
+        fn();
+
         currentObserver = null;
         effect.running = false;
     };
     effect.sources = new Set();
+    effect.cleanups = [];
     effect.running = false;
+    
     effect();
 }
 
@@ -65,14 +82,14 @@ export function cleanUp(effect) {
     effect.sources.clear();
 }
 
-
 //schscheduleEffect / batching
-const effectQueue = new Set();
-let isFlushing = false;
 
 // wait for the JS stack to finish excution than excute the effect int the Microtask level
 export function scheduleEffect(effect) {
     effectQueue.add(effect);
+
+    if (batchDepth > 0) return
+
     if (!isFlushing) {
         isFlushing = true;
         queueMicrotask(flushEffects);
@@ -87,6 +104,20 @@ export function flushEffects() {
     } finally {
         effectQueue.clear();
         isFlushing = false;
+    }
+}
+
+// batch
+export function batch(fn) {
+    batchDepth++;
+    try {
+        fn();
+    } finally {
+        batchDepth--;
+        if (batchDepth === 0 && effectQueue.size > 0 && !isFlushing) {
+            isFlushing = true;
+            queueMicrotask(flushEffects);
+        }
     }
 }
 
@@ -106,4 +137,11 @@ export function createMemo(fn, initialValue, name = "memo", debug = false) {
     })
 
     return get;
+}
+
+
+export function onCleanup(fn) {
+    if (currentCleanupOwner) {
+        currentCleanupOwner.cleanups.push(fn);
+    }
 }
