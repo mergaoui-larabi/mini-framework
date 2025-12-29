@@ -1,77 +1,139 @@
-import * as fm from "../framwork/index.js"
+import * as fm from "../framwork/index.js";
 
-const [count, setCount] = fm.createSignal(0, "count");
+const [x, setX] = fm.createSignal(50);
+const [y, setY] = fm.createSignal(50);
 
-
-
-function handleClick() {
-    fm.untrack(() => {
-        setCount(count() + 1);
-    });
-}
-
-fm.createEffect(() => {
-  const id = setInterval(() => {
-    console.log("count is", count());
-  }, 1000);
-
-  fm.onCleanup(() => {
-    clearInterval(id);
-  });
+// Main container for the entire application
+const appContainer = fm.domAbstracting({
+  tag: 'div',
+  attributes: { class: 'container' },
+  children: []
 });
+document.body.append(appContainer);
 
-const dom = {
-    tag: "div",
+
+
+function createCubeAnimationCard() {
+  const card = fm.domAbstracting({
+    tag: 'div',
+    attributes: { class: 'card' },
+    children: []
+  });
+
+  const title = fm.domAbstracting({
+    tag: 'h2',
     attributes: {},
-    children: [
-        () => count(),
-        {
-            tag: "button",
-            attributes: {
-                onclick: handleClick
-            },
-            children: [
-                "+"
-            ]
-        }
-    ]
+    children: ['Cube Animation']
+  });
+
+  const animationContainer = fm.domAbstracting({
+    tag: 'div',
+    attributes: { class: 'animation-container' },
+    children: []
+  });
+
+  const movableDiv = fm.domAbstracting({
+    tag: 'div',
+    attributes: {
+      id: 'red-cube',
+      style: `background-color: red; 
+                  width: 50px; height: 50px;
+                  transform-origin: center; 
+                  transition: transform 0.2s ease-in-out;` },
+    children: []
+  });
+
+  fm.createEffect(() => {
+    const xPosition = x();
+    const yPosition = y();
+    movableDiv.style.transform = `translateX(${xPosition}px) translateY(${yPosition}px)`;
+  });
+  animationContainer.append(movableDiv);
+
+  const moveButtonX = fm.domAbstracting({
+    tag: 'button',
+    attributes: {
+      onclick: () => setX(x() + 10)
+    },
+    children: ['Move x']
+  });
+
+  const moveButtonY = fm.domAbstracting({
+    tag: 'button',
+    attributes: {
+      onclick: () => setY(y() + 10)
+    },
+    children: ['Move y']
+  });
+
+  card.append(title, moveButtonX, moveButtonY, animationContainer);
+  return card;
 }
 
-const el = fm.domAbstracting(dom)
-document.body.append(el)
 
 
-// let btn = document.createElement('button');
-// btn.textContent = 'Increment';
-// btn.onclick = () => setCount(count() + 1);
+// ------------------------------------------------------ User Profile Card ------------------------------------------------------
+function createUserProfileCard() {
+  const card = fm.domAbstracting({
+    tag: 'div',
+    attributes: { class: 'card' },
+    children: []
+  });
 
-// // 1. GLOBAL TEMPLATE (Created once)
-// const _tmpl$ = document.createElement("template");
-// _tmpl$.innerHTML = "<div>Count: <!></div>"; 
-// // Note: <!> acts as a marker/comment node for where text goes
+  const [isLoggedIn, setLoggedIn] = fm.createSignal(false, 'isLoggedIn');
 
-// function App() {
+  const loginButton = fm.domAbstracting({
+    tag: 'button',
+    attributes: {
+      onclick: () => setLoggedIn(true)
+    },
+    children: ['Log In']
+  });
 
-//   // 2. DOM INSTANTIATION (Fast cloning)
-//   // cloneNode(true) is significantly faster than creating nodes manually
-//   const div = _tmpl$.content.firstChild.cloneNode(true);
-  
-//   // 3. TRAVERSAL & REPLACEMENT
-//   // The <!> comment node is a placeholder. We replace it with a text node.
-//   const placeholder = div.firstChild.nextSibling;
-//   const textNode = document.createTextNode('');
-//   div.replaceChild(textNode, placeholder);
+  const loggedInContent = fm.domAbstracting({
+    tag: 'div',
+    attributes: { class: 'loggedIn-content' },
+    children: [
+      {
+        tag: 'span',
+        attributes: {},
+        children: ['Welcome back! ']
+      },
+      {
+        tag: 'button',
+        attributes: {
+          onclick: () => setLoggedIn(false)
+        },
+        children: ['Log Out']
+      }
+    ]
+  });
 
-//   // 4. REACTIVE BINDING
-//   // This is the "Magic". We create an Effect that only updates this specific textNode.
-//   fm.createEffect(() => {
-//     // This function re-runs whenever 'count' changes.
-//     // It updates the DOM directly.
-//     textNode.nodeValue = count();
-//   });
+  const container = fm.domAbstracting({
+    tag: 'div',
+    attributes: { id: 'user-profile' },
+    children: [
+      {
+        tag: 'h1',
+        attributes: {},
+        children: ['My App']
+      }
+    ]
+  });
 
-//   return div;
-// }
+  const showComponent = fm.Show({
+    when: isLoggedIn,
+    fallback: loginButton,
+    children: loggedInContent
+  });
 
-// document.body.append(App());
-// document.body.append(btn);
+  container.appendChild(showComponent);
+  card.append(container);
+  return card;
+}
+
+// --- Append Cards to App Container ---
+if (appContainer) {
+  // appContainer.append(createCubeAnimationCard(), createUserProfileCard());
+  appContainer.append(createCubeAnimationCard());
+}

@@ -1,21 +1,12 @@
-// dom main
-
-import { getDevMode } from "../libs/fetch_config.js";
-import { validateDomNode } from "./tags.js";
 import { valideHtmlNode } from "../libs/validate_html_node.js";
-import { createEffect } from "../state/signal.js";
+import { validateDomNode } from "./tags.js";
+import { GlobalEventManager } from "../event/event.js";
 
-const devMode = await getDevMode()
-
-const node = {
-    tag: "",
-    attributes: {},
-    children: []
-}
+const devMode = false;
 
 export function domAbstracting(node) {
     if (!valideHtmlNode(node)) return;
-    if (devMode) if (!validateDomNode(node)) return;
+    if (devMode && !validateDomNode(node)) return;
 
     // 🔹 static text node
     if (typeof node === "string") {
@@ -27,57 +18,23 @@ export function domAbstracting(node) {
     // attributes
     if (node.attributes) {
         for (const [key, value] of Object.entries(node.attributes)) {
-            // must implement event delegation
+
             if (key.startsWith("on") && typeof value === "function") {
                 const eventName = key.toLowerCase().substring(2);
-                el.addEventListener(eventName, value);
-            }
+                GlobalEventManager.linkNodeToHandlers(el, eventName, value);
 
-            // reactive attribute
-            else if (typeof value === "function") {
-                createEffect(() => {
-                    el.setAttribute(key, value());
-                });
-            }
-            else {
+            } else {
                 el.setAttribute(key, value);
             }
         }
     }
 
-    // children
     if (node.children) {
         for (const child of node.children) {
-            insertChild(el, child);
+            const childEl = domAbstracting(child);
+            if (childEl) el.appendChild(childEl);
         }
     }
 
     return el;
 }
-
-function insertChild(parent, child) {
-    // null / boolean guard
-    if (child == null || child === true || child === false) return;
-
-    // static text
-    if (typeof child === "string" || typeof child === "number") {
-        parent.appendChild(document.createTextNode(child));
-        return;
-    }
-
-    // 🔥 reactive text
-    if (typeof child === "function") {
-        const textNode = document.createTextNode("");
-        parent.appendChild(textNode);
-
-        createEffect(() => {
-            textNode.data = child() ?? "";
-        });
-
-        return;
-    }
-
-    // element object
-    parent.appendChild(domAbstracting(child));
-}
-
