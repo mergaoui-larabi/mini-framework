@@ -1,12 +1,19 @@
 
 const nodeHandlerRegistry = new WeakMap();
 
-export class GlobalEventManager {
-    constructor(root = document) {
+class GlobalEventManager {
+    static #GlobalEventManagerKey = Symbol('GlobalEventManager constructor key');
+    static instance = new GlobalEventManager(GlobalEventManager.#GlobalEventManagerKey);
+
+    constructor(key) {
+        if (key !== GlobalEventManager.#GlobalEventManagerKey) {
+            throw new TypeError('GlobalEventManager is not constructable directly.');
+        }
         this.root = root;
         this.supportedEvents = ['click', 'input', 'change', 'submit'];
         this.init();
     }
+
 
     init() {
         this.supportedEvents.forEach(eventName => {
@@ -38,3 +45,4 @@ export class GlobalEventManager {
         nodeHandlerRegistry.set(node, existingHandlers);
     }
 }
+export const eventManager = GlobalEventManager.instance;
