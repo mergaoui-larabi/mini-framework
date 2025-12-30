@@ -1,5 +1,3 @@
-import { memo } from "react";
-
 const effectQueue = new Set(); // effects scheduled to run
 
 let currentObserver = null; // the effect currently being executed
