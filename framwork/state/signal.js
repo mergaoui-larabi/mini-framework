@@ -141,12 +141,13 @@ export function createMemo(fn, initialValue, name = "memo", debug = false) {
         const prev = currentObserver;
         currentObserver = memoObserver;
 
-        value = fn();
+
+        cached = fn();
 
         currentObserver = prev;
         outdated = false;
 
-        if (debug) console.log(`[memo] => ${name} recomputed value: ${value}`);
+        if (debug) console.log(`[memo] => ${name} recomputed cached: ${cached}`);
     }
 
     memoObserver.sources = sources;
