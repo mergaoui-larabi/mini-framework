@@ -1,3 +1,4 @@
+import { memo } from "react";
 
 const effectQueue = new Set(); // effects scheduled to run
 
@@ -32,7 +33,12 @@ export function createSignal(initialValue, name = "signal", debug = false) {
         if (debug) console.log(`[setter] => signal: ${name} has ${observers.size} observers.`);
         // very important to use [...observers] a static copy of the set to avoid mutate the set during effect re-runs
         [...observers].forEach(effect => {
-            scheduleEffect(effect);
+            if (effect.notify) {
+                effect.notify();
+            } else {
+                if (debug) console.log(`[setter] => scheduling effect for signal: ${name}`);
+                scheduleEffect(effect);
+            }
         });
     };
 
@@ -57,7 +63,7 @@ export function createEffect(fn) {
 
         currentObserver = null;
         effect.running = false;
-    }; prevent
+    };
 
     effect.sources = new Set();
     effect.cleanups = [];
@@ -124,20 +130,48 @@ export function batch(fn) {
 
 // memo or cashing
 export function createMemo(fn, initialValue, name = "memo", debug = false) {
-    const [get, set] = createSignal(initialValue, name, debug);
-    let firstRun = true;
+    let cached = initialValue;
+    let outdated = true;
 
-    createEffect(() => {
-        const next = fn();
+    const obeservers = new Set();
+    const sources = new Set();
 
-        if (firstRun || next !== get()) {
-            if (debug) console.log(`[memo] ${name} updated:`, next);
-            set(next)
-            firstRun = false;
+    function memoObserver() {
+        for (const src of sources) src.delete(memoObserver);
+        sources.clear();
+
+        const prev = currentObserver;
+        currentObserver = memoObserver;
+
+        value = fn();
+
+        currentObserver = prev;
+        outdated = false;
+
+        if (debug) console.log(`[memo] => ${name} recomputed value: ${value}`);
+    }
+
+    memoObserver.sources = sources;
+
+    memoObserver.notify = function () {
+        if (!outdated) {
+            outdated = true;
+            if (debug) console.log(`[memo] => ${name} marked as outdated.`);
+            for (const observer of obeservers) scheduleEffect(observer);
         }
-    })
+    }
 
-    return get;
+    //initial computation
+    return function getMemo() {
+        if (currentObserver) {
+            obeservers.add(currentObserver);
+            currentObserver.sources.add(obeservers);
+            if (debug) console.log(`[getter] => ${name} tracked current value: ${cached}`);
+        }
+        if (outdated) memoObserver();
+        return cached;
+    };
+
 }
 
 

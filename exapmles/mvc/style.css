@@ -1,0 +1,118 @@
+/* General app styling */
+body {
+    font: 14px 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    line-height: 1.4em;
+    background: #f5f5f5;
+    color: #4d4d4d;
+    margin: 0;
+    padding: 0;
+}
+
+.todoapp {
+    background: #fff;
+    margin: 50px auto;
+    width: 550px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 25px 50px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    font-size: 100px;
+    font-weight: 100;
+    text-align: center;
+    color: rgba(175, 47, 47, 0.15);
+    margin: 0 0 30px 0;
+}
+
+/* New todo input */
+.new-todo-container {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.new-todo {
+    flex: 1;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    outline: none;
+}
+
+.new-todo:focus {
+    border-color: #999;
+}
+
+.new-todo-container button {
+    padding: 10px 15px;
+    margin-left: 10px;
+    background: #5dc2af;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.new-todo-container button:hover {
+    background: #55b39e;
+}
+
+/* Todo list */
+.todo-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.todo-list li {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #ededed;
+    padding: 10px 0;
+}
+
+.todo-list li.completed span {
+    text-decoration: line-through;
+    color: #d9d9d9;
+}
+
+.todo-list li input[type="checkbox"] {
+    margin-right: 15px;
+}
+
+.todo-list li button.destroy {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: #cc9a9a;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.todo-list li button.destroy:hover {
+    color: #af5b5e;
+}
+
+/* Footer */
+.footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    color: #777;
+    font-size: 14px;
+}
+
+.filters {
+    display: flex;
+    gap: 5px;
+}
+
+.filters button {
+    border: 1px solid #ddd;
+    padding: 3px 7px;
+    background: white;
+    cursor: pointer;
+}
+
+.filters button.selected {
+    border-color: rgba(175, 47, 47, 0.2);
+}

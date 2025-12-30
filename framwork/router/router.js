@@ -7,7 +7,7 @@
 // ** link.origin !== location.origin → external link; do not intercept.
 // ** If the link only changes the fragment (same path, different #foo) you may want special handling (scroll to fragment) rather than full route change.
 
-import { EventEmitter } from '../event/event_emitter.js'
+import { eventEmitter } from '../event/event_emitter.js'
 
 export class Router {
     static #RouterKey = Symbol('Router constructor key');
@@ -79,11 +79,11 @@ export class Router {
     }
 
     async handleRoute(path, pushState = false, data = null) {
-        
+
         const url = new URL(path, document.baseURI);
         let tmp = this.#EVENT_ROUTES.get(url.pathname)
 
-        if (tmp) return EventEmitter.instance.emit(tmp)
+        if (tmp) return eventEmitter.instance.emit(tmp)
 
         if (this.#CURRENT_VIEW) this.#CURRENT_VIEW.destroy()
 
@@ -117,7 +117,7 @@ export class Router {
 
     setErrorHandler = (errorHanler) => this.#ERROR_HANDLER = errorHanler
 
-    async handleError(err) {  
+    async handleError(err) {
         if (this.#ERROR_HANDLER) return this.#ERROR_HANDLER(err)
         else throw new Error("no error handler");
     }

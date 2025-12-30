@@ -9,7 +9,7 @@ class GlobalEventManager {
         if (key !== GlobalEventManager.#GlobalEventManagerKey) {
             throw new TypeError('GlobalEventManager is not constructable directly.');
         }
-        this.root = root;
+        // this.root = root;
         this.supportedEvents = ['click', 'input', 'change', 'submit'];
         this.init();
     }
@@ -17,7 +17,7 @@ class GlobalEventManager {
 
     init() {
         this.supportedEvents.forEach(eventName => {
-            this.root.addEventListener(eventName, (e) => this.handleEvent(e), false);
+            // this.root.addEventListener(eventName, (e) => this.handleEvent(e), false);
         });
     }
 

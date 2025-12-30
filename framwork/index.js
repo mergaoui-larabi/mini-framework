@@ -5,7 +5,7 @@ export * from './libs/fetch_config.js'
 export * from './libs/validate_html_node.js'
 export * from './router/router.js'
 export * from './state/signal.js'
-export * from './state/show.js'
+export * from './dom/show.js'
 
 
 // let currentEffect = null

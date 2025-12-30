@@ -172,7 +172,7 @@ const eventAttrs = new Set([
   "ontransitionend",
 ]);
 
-const tagsMapAttributesSet = {
+export const tagsMapAttributesSet = {
   // Document metadata
   html: new Set([...globalAttrs, ...eventAttrs, "manifest"]),
   head: new Set([...globalAttrs, ...eventAttrs]),
@@ -194,6 +194,7 @@ const tagsMapAttributesSet = {
   figure: new Set([...globalAttrs, ...eventAttrs]),
   figcaption: new Set([...globalAttrs, ...eventAttrs]),
   address: new Set([...globalAttrs, ...eventAttrs]),
+  div: new Set([...globalAttrs, ...eventAttrs]),
 
   // Headings
   h1: new Set([...globalAttrs, ...eventAttrs]),
@@ -232,15 +233,6 @@ const tagsMapAttributesSet = {
   bdo: new Set([...globalAttrs, ...eventAttrs, "dir"]),
   wbr: new Set([...globalAttrs, ...eventAttrs]),
   br: new Set([...globalAttrs, ...eventAttrs]),
-  hr: new Set([...globalAttrs, ...eventAttrs]),
-  data: new Set([...globalAttrs, ...eventAttrs, "value"]),
-  ruby: new Set([...globalAttrs, ...eventAttrs]),
-  rt: new Set([...globalAttrs, ...eventAttrs]),
-  rp: new Set([...globalAttrs, ...eventAttrs]),
-
-  // Edits
-  del: new Set([...globalAttrs, ...eventAttrs, "cite", "datetime"]),
-  ins: new Set([...globalAttrs, ...eventAttrs, "cite", "datetime"]),
 
   // Links & media
   a: new Set([...globalAttrs, ...eventAttrs, "href", "target", "rel", "download", "hreflang", "type", "referrerpolicy"]),
@@ -254,11 +246,12 @@ const tagsMapAttributesSet = {
   iframe: new Set([...globalAttrs, ...eventAttrs, "src", "srcdoc", "name", "sandbox", "allow", "allowfullscreen", "referrerpolicy", "width", "height"]),
   map: new Set([...globalAttrs, ...eventAttrs, "name"]),
   canvas: new Set([...globalAttrs, ...eventAttrs, "width", "height"]),
-  svg: new Set([...globalAttrs, ...eventAttrs]), // add SVG-specific later
+  svg: new Set([...globalAttrs, ...eventAttrs]),
   math: new Set([...globalAttrs, ...eventAttrs]),
   embed: new Set([...globalAttrs, ...eventAttrs, "src", "type", "width", "height"]),
   object: new Set([...globalAttrs, ...eventAttrs, "data", "type", "name", "usemap", "width", "height"]),
   param: new Set([...globalAttrs, ...eventAttrs, "name", "value"]),
+  span: new Set([...globalAttrs, ...eventAttrs]),
 
   // Forms
   form: new Set([...globalAttrs, ...eventAttrs, "action", "method", "enctype", "target", "autocomplete", "novalidate", "name"]),
@@ -278,12 +271,6 @@ const tagsMapAttributesSet = {
   ul: new Set([...globalAttrs, ...eventAttrs]),
   ol: new Set([...globalAttrs, ...eventAttrs]),
   li: new Set([...globalAttrs, ...eventAttrs]),
-  dl: new Set([...globalAttrs, ...eventAttrs]),
-  dt: new Set([...globalAttrs, ...eventAttrs]),
-  dd: new Set([...globalAttrs, ...eventAttrs]),
-  menu: new Set([...globalAttrs, ...eventAttrs]),
-  menuitem: new Set([...globalAttrs, ...eventAttrs]),
-  command: new Set([...globalAttrs, ...eventAttrs]),
 
   // Tables
   table: new Set([...globalAttrs, ...eventAttrs, "summary", "width", "border", "cellpadding", "cellspacing"]),
@@ -321,6 +308,8 @@ const tagsMapAttributesSet = {
   template: new Set([...globalAttrs, ...eventAttrs]),
   slot: new Set([...globalAttrs, ...eventAttrs])
 };
+
+
 
 export function validateDomNode(node) {
   // 1. Ignore non-element nodes (Text, Comment, etc.)
