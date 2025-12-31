@@ -237,7 +237,6 @@ const toggleAllCheckbox = dom({
     class: "toggle-all",
     type: "checkbox",
     "data-testid": "toggle-all",
-    onclick: toggleAll,
     onchange: toggleAll
   }
 });
