@@ -5,34 +5,6 @@ import { eventManager } from "../event/event.js";
 
 const devMode = false;
 
-// function GenerateTagFunctions() {
-//     const tags = {};
-//     for (const tag of Object.keys(tagsMapAttributesSet)) {
-//         tags[tag] = function ({ attributes = {}, children = [] } = {}) {
-//             return domAbstracting({ tag, attributes, children });
-//         };
-//     }
-//     return tags;
-// }
-
-// // Step 2: destructure and export as el
-// export const el = { ...GenerateTagFunctions() };
-
-// Destructure and export all tags as named exports
-// export const {
-//     a, abbr, address, area, article, aside, audio, b, base, bdi, bdo,
-//     blockquote, body, br, button, canvas, caption, cite, code, col, colgroup,
-//     data, datalist, dd, del, details, dfn, dialog, div, dl, dt, em, embed,
-//     fieldset, figcaption, figure, footer, form, h1, h2, h3, h4, h5, h6,
-//     head, header, hgroup, hr, html, i, iframe, img, input, ins, kbd,
-//     label, legend, li, link, main, map, mark, meta, meter, nav, noscript,
-//     object, ol, optgroup, option, output, p, param, picture, pre, progress,
-//     q, rp, rt, ruby, s, samp, script, section, select, slot, small, source,
-//     span, strong, style, sub, summary, sup, table, tbody, td, template, textarea,
-//     tfoot, th, thead, time, title, tr, track, u, ul, var: varTag, video, wbr
-// } = GenerateTagFunctions();
-
-
 export function dom(node) {
     if (!valideHtmlNode(node)) return;
     if (devMode && !validateDomNode(node)) return;
@@ -64,6 +36,77 @@ function setAttributes(el, attributes = {}) {
 
 // Handles children, including reactive text nodes
 function appendChildren(el, children = []) {
+    if (typeof children === "function") {
+        // reactive children array - use reconciliation instead of clearing
+        let previousChildren = [];
+        const childElementsMap = new Map(); // Track elements by a stable key
+        
+        createEffect(() => {
+            const newChildren = children();
+            
+            // Convert to array if not already
+            const newChildrenArray = Array.isArray(newChildren) ? newChildren : [newChildren];
+            
+            // Create a map of new children by their identity
+            const newChildrenMap = new Map();
+            const newChildElements = [];
+            
+            newChildrenArray.forEach((child, index) => {
+                // Try to find a stable key
+                const key = child?.id || child?.tag + index;
+                newChildrenMap.set(key, child);
+                
+                // Check if we already have this element
+                let childEl = childElementsMap.get(key);
+                
+                if (!childEl) {
+                    // Create new element
+                    childEl = dom(child);
+                }
+                
+                if (childEl) {
+                    newChildElements.push({ key, element: childEl });
+                }
+            });
+            
+            // Remove elements that no longer exist
+            childElementsMap.forEach((element, key) => {
+                if (!newChildrenMap.has(key)) {
+                    if (element.parentNode === el) {
+                        el.removeChild(element);
+                    }
+                    childElementsMap.delete(key);
+                }
+            });
+            
+            // Add/reorder elements
+            newChildElements.forEach(({ key, element }, index) => {
+                childElementsMap.set(key, element);
+                
+                const currentIndex = Array.from(el.children).indexOf(element);
+                
+                if (currentIndex === -1) {
+                    // Element doesn't exist in DOM, add it
+                    if (index >= el.children.length) {
+                        el.appendChild(element);
+                    } else {
+                        el.insertBefore(element, el.children[index]);
+                    }
+                } else if (currentIndex !== index) {
+                    // Element exists but in wrong position, move it
+                    if (index >= el.children.length) {
+                        el.appendChild(element);
+                    } else {
+                        el.insertBefore(element, el.children[index]);
+                    }
+                }
+            });
+            
+            previousChildren = newChildrenArray;
+        });
+        return;
+    }
+    
     for (const child of children) {
         let childEl;
 
@@ -80,5 +123,3 @@ function appendChildren(el, children = []) {
         if (childEl) el.appendChild(childEl);
     }
 }
-
-

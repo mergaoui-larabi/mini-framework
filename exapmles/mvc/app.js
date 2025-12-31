@@ -2,7 +2,6 @@ import * as fm from "../../framwork/index.js";
 
 const { dom, createSignal, createEffect } = fm;
 
-const [counter, setCounter] = createSignal(0);
 const [todos, setTodos] = createSignal([]);
 const [editingId, setEditingId] = createSignal(null);
 const [filter, setFilter] = createSignal('all'); 
@@ -25,50 +24,177 @@ function addTodo() {
   const inputValue = todoInput.value.trim();
   if (inputValue) {
     setTodos([...todos(), { text: inputValue, completed: false, id: Date.now() }]);
-    setCounter(counter() + 1); 
     todoInput.value = ''; 
   }
 }
 
 function removeTodo(id) {
-  const newTodos = todos().filter(todo => todo.id !== id);
-  setTodos(newTodos);
-  setCounter(newTodos.length);
+  setTodos(todos().filter(todo => todo.id !== id));
 }
 
 function toggleTodo(id) {
-  const newTodos = todos().map(todo => 
+  setTodos(todos().map(todo => 
     todo.id === id ? { ...todo, completed: !todo.completed } : todo
-  );
-  setTodos(newTodos);
+  ));
 }
 
 function editTodo(id, newText) {
-  const newTodos = todos().map(todo => 
+  setTodos(todos().map(todo => 
     todo.id === id ? { ...todo, text: newText } : todo
-  );
-  setTodos(newTodos);
+  ));
   setEditingId(null);
 }
 
 function clearCompleted() {
-  const newTodos = todos().filter(todo => !todo.completed);
-  setTodos(newTodos);
-  setCounter(newTodos.length);
+  setTodos(todos().filter(todo => !todo.completed));
 }
 
 function toggleAll() {
-  console.log('toggleAll called');
   const allCompleted = todos().every(todo => todo.completed);
-  const newTodos = todos().map(todo => ({ ...todo, completed: !allCompleted }));
-  setTodos(newTodos);
+  setTodos(todos().map(todo => ({ ...todo, completed: !allCompleted })));
 }
 
+// Create a static ul element
 const todosContainer = dom({
   tag: "ul",
   attributes: { class: "todo-list" },
   children: []
 });
+
+// Manually handle list updates efficiently
+const todoElements = new Map();
+
+createEffect(() => {
+  const filteredTodos = todos().filter(todo => {
+    if (filter() === 'active') return !todo.completed;
+    if (filter() === 'completed') return todo.completed;
+    return true;
+  });
+
+  // Track which todos should exist
+  const currentIds = new Set(filteredTodos.map(t => t.id));
+  
+  // Remove elements that shouldn't exist anymore
+  todoElements.forEach((element, id) => {
+    if (!currentIds.has(id)) {
+      element.remove();
+      todoElements.delete(id);
+    }
+  });
+
+  // Add or update elements
+  filteredTodos.forEach((todo, index) => {
+    let liElement = todoElements.get(todo.id);
+    
+    if (!liElement) {
+      // Create new element
+      liElement = createTodoElement(todo);
+      todoElements.set(todo.id, liElement);
+      todosContainer.appendChild(liElement);
+    } else {
+      // Update existing element
+      updateTodoElement(liElement, todo);
+    }
+  });
+
+  // Reorder elements to match filtered order
+  filteredTodos.forEach((todo, index) => {
+    const element = todoElements.get(todo.id);
+    const currentIndex = Array.from(todosContainer.children).indexOf(element);
+    if (currentIndex !== index) {
+      if (index >= todosContainer.children.length) {
+        todosContainer.appendChild(element);
+      } else {
+        todosContainer.insertBefore(element, todosContainer.children[index]);
+      }
+    }
+  });
+});
+
+function createTodoElement(todo) {
+  const li = dom({
+    tag: "li",
+    attributes: { 
+      class: todo.completed ? "completed" : ""
+    },
+    children: [
+      {
+        tag: "div",
+        attributes: { class: "view" },
+        children: [
+          {
+            tag: "input",
+            attributes: {
+              class: "toggle",
+              type: "checkbox",
+              ...(todo.completed ? { checked: "checked" } : {}),
+              onchange: () => toggleTodo(todo.id)
+            }
+          },
+          {
+            tag: "label",
+            attributes: {
+              ondblclick: () => setEditingId(todo.id)
+            },
+            children: [todo.text]
+          },
+          {
+            tag: "button",
+            attributes: {
+              class: "destroy",
+              onclick: () => removeTodo(todo.id)
+            }
+          }
+        ]
+      }
+    ]
+  });
+
+  // Watch for editing state changes
+  createEffect(() => {
+    const isEditing = editingId() === todo.id;
+    li.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
+    
+    // Handle edit input
+    let editInput = li.querySelector('.edit');
+    if (isEditing && !editInput) {
+      editInput = dom({
+        tag: "input",
+        attributes: {
+          class: "edit",
+          value: todo.text,
+          onblur: (e) => editTodo(todo.id, e.target.value),
+          onkeypress: (e) => {
+            if (e.key === 'Enter') editTodo(todo.id, e.target.value);
+            if (e.key === 'Escape') setEditingId(null);
+          }
+        }
+      });
+      li.appendChild(editInput);
+      editInput.focus();
+    } else if (!isEditing && editInput) {
+      editInput.remove();
+    }
+  });
+
+  return li;
+}
+
+function updateTodoElement(liElement, todo) {
+  const isEditing = editingId() === todo.id;
+  liElement.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
+  
+  const checkbox = liElement.querySelector('.toggle');
+  const label = liElement.querySelector('label');
+  
+  if (checkbox) {
+    checkbox.checked = todo.completed;
+  }
+  
+  if (label) {
+    label.textContent = todo.text;
+  }
+}
 
 const counterDisplay = dom({
   tag: "span",
@@ -91,10 +217,7 @@ const toggleAllLabel = dom({
   tag: "label",
   attributes: { 
     for: "toggle-all",
-    onclick: (e) => {
-      console.log('label clicked');
-      toggleAll();
-    }
+    onclick: toggleAll
   },
   children: ["Mark all as complete"]
 });
@@ -105,7 +228,6 @@ const filtersContainer = dom({
   children: [
     {
       tag: "li",
-      attributes: {},
       children: [{
         tag: "a",
         attributes: { 
@@ -118,7 +240,6 @@ const filtersContainer = dom({
     },
     {
       tag: "li",
-      attributes: {},
       children: [{
         tag: "a",
         attributes: { 
@@ -131,7 +252,6 @@ const filtersContainer = dom({
     },
     {
       tag: "li",
-      attributes: {},
       children: [{
         tag: "a",
         attributes: { 
@@ -154,15 +274,15 @@ const clearCompletedButton = dom({
   children: ["Clear completed"]
 });
 
-const footerSection = dom({
-  tag: "footer",
-  attributes: { class: "footer" },
-  children: []
-});
-
 const mainSection = dom({
   tag: "section",
   attributes: { class: "main" },
+  children: []
+});
+
+const footerSection = dom({
+  tag: "footer",
+  attributes: { class: "footer" },
   children: []
 });
 
@@ -176,71 +296,11 @@ createEffect(() => {
   toggleAllCheckbox.checked = allCompleted;
 });
 
+// Hide/show main and footer sections based on whether there are todos
 createEffect(() => {
-  while (todosContainer.firstChild) {
-    todosContainer.removeChild(todosContainer.firstChild);
-  }
-  
-  const filteredTodos = todos().filter(todo => {
-    if (filter() === 'active') return !todo.completed;
-    if (filter() === 'completed') return todo.completed;
-    return true; 
-  });
-  
-  filteredTodos.forEach((todo) => {
-    const todoItem = dom({
-      tag: "li",
-      attributes: { 
-        class: editingId() === todo.id ? "editing" : (todo.completed ? "completed" : "")
-      },
-      children: [
-        {
-          tag: "div",
-          attributes: { class: "view" },
-          children: [
-            {
-              tag: "input",
-              attributes: {
-                class: "toggle",
-                type: "checkbox",
-                ...(todo.completed ? { checked: "checked" } : {}),
-                onchange: () => toggleTodo(todo.id)
-              }
-            },
-            {
-              tag: "label",
-              attributes: {
-                ondblclick: () => setEditingId(todo.id)
-              },
-              children: [todo.text]
-            },
-            {
-              tag: "button",
-              attributes: {
-                class: "destroy",
-                onclick: () => removeTodo(todo.id)
-              },
-              children: []
-            }
-          ]
-        },
-        ...(editingId() === todo.id ? [{
-          tag: "input",
-          attributes: {
-            class: "edit",
-            value: todo.text,
-            onblur: (e) => editTodo(todo.id, e.target.value),
-            onkeypress: (e) => {
-              if (e.key === 'Enter') editTodo(todo.id, e.target.value);
-              if (e.key === 'Escape') setEditingId(null);
-            }
-          }
-        }] : [])
-      ]
-    });
-    
-    todosContainer.appendChild(todoItem);
-  });
+  const hasTodos = todos().length > 0;
+  mainSection.style.display = hasTodos ? '' : 'none';
+  footerSection.style.display = hasTodos ? '' : 'none';
 });
 
 const App = dom({
@@ -253,30 +313,23 @@ const App = dom({
       children: [
         {
           tag: "h1",
-          attributes: {},
           children: ["todos"]
         }
       ]
-    },
-    {
-      tag: "section",
-      attributes: { class: "main" },
-      children: []
-    },
-    {
-      tag: "footer",
-      attributes: { class: "footer" },
-      children: []
     }
   ]
 });
 
 App.children[0].appendChild(todoInput);
-App.children[1].appendChild(toggleAllCheckbox);
-App.children[1].appendChild(toggleAllLabel);
-App.children[1].appendChild(todosContainer);
-App.children[2].appendChild(counterDisplay);
-App.children[2].appendChild(filtersContainer);
-App.children[2].appendChild(clearCompletedButton);
+App.appendChild(mainSection);
+App.appendChild(footerSection);
+
+mainSection.appendChild(toggleAllCheckbox);
+mainSection.appendChild(toggleAllLabel);
+mainSection.appendChild(todosContainer);
+
+footerSection.appendChild(counterDisplay);
+footerSection.appendChild(filtersContainer);
+footerSection.appendChild(clearCompletedButton);
 
 document.body.append(App);
