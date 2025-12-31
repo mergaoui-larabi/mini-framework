@@ -10,6 +10,9 @@ const todoInput = dom({
   tag: "input",
   attributes: {
     class: "new-todo",
+    id: "todo-input",
+    type: "text",
+    "data-testid": "text-input",
     placeholder: "What needs to be done?",
     autofocus: true,
     onkeypress: (e) => {
@@ -18,6 +21,15 @@ const todoInput = dom({
       }
     }
   }
+});
+
+const todoInputLabel = dom({
+  tag: "label",
+  attributes: {
+    class: "visually-hidden",
+    for: "todo-input"
+  },
+  children: ["New Todo Input"]
 });
 
 function addTodo() {
@@ -39,10 +51,15 @@ function toggleTodo(id) {
 }
 
 function editTodo(id, newText) {
-  setTodos(todos().map(todo => 
-    todo.id === id ? { ...todo, text: newText } : todo
-  ));
-  setEditingId(null);
+  const t = newText.trim();
+  if (t) {
+    setTodos(todos().map(todo => 
+      todo.id === id ? { ...todo, text: newText } : todo
+    ));
+    setEditingId(null);
+  } else {
+    removeTodo(id);
+  }
 }
 
 function clearCompleted() {
@@ -57,7 +74,10 @@ function toggleAll() {
 // Create a static ul element
 const todosContainer = dom({
   tag: "ul",
-  attributes: { class: "todo-list" },
+  attributes: { 
+    class: "todo-list",
+    "data-testid": "todo-list"
+  },
   children: []
 });
 
@@ -115,7 +135,8 @@ function createTodoElement(todo) {
   const li = dom({
     tag: "li",
     attributes: { 
-      class: todo.completed ? "completed" : ""
+      class: todo.completed ? "completed" : "",
+      "data-testid": "todo-item"
     },
     children: [
       {
@@ -127,6 +148,7 @@ function createTodoElement(todo) {
             attributes: {
               class: "toggle",
               type: "checkbox",
+              "data-testid": "todo-item-toggle",
               ...(todo.completed ? { checked: "checked" } : {}),
               onchange: () => toggleTodo(todo.id)
             }
@@ -134,6 +156,7 @@ function createTodoElement(todo) {
           {
             tag: "label",
             attributes: {
+              "data-testid": "todo-item-label",
               ondblclick: () => setEditingId(todo.id)
             },
             children: [todo.text]
@@ -142,6 +165,7 @@ function createTodoElement(todo) {
             tag: "button",
             attributes: {
               class: "destroy",
+              "data-testid": "todo-item-button",
               onclick: () => removeTodo(todo.id)
             }
           }
@@ -154,15 +178,19 @@ function createTodoElement(todo) {
   createEffect(() => {
     const isEditing = editingId() === todo.id;
     li.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
+    if (isEditing) {
+      li.setAttribute("data-testid", "todo-item");
+    }
     
     // Handle edit input
     let editInput = li.querySelector('.edit');
     if (isEditing && !editInput) {
+      const currentTodo = todos().find(t => t.id === todo.id) || todo;
       editInput = dom({
         tag: "input",
         attributes: {
           class: "edit",
-          value: todo.text,
+          value: currentTodo.text,
           onblur: (e) => editTodo(todo.id, e.target.value),
           onkeypress: (e) => {
             if (e.key === 'Enter') editTodo(todo.id, e.target.value);
@@ -208,6 +236,7 @@ const toggleAllCheckbox = dom({
     id: "toggle-all",
     class: "toggle-all",
     type: "checkbox",
+    "data-testid": "toggle-all",
     onclick: toggleAll,
     onchange: toggleAll
   }
@@ -216,15 +245,27 @@ const toggleAllCheckbox = dom({
 const toggleAllLabel = dom({
   tag: "label",
   attributes: { 
-    for: "toggle-all",
-    onclick: toggleAll
+    class: "toggle-all-label",
+    for: "toggle-all"
   },
-  children: ["Mark all as complete"]
+  children: [
+    {
+      tag: "div",
+      attributes: { class: "toggle-all-container" },
+      children: [
+        "::before",
+        "Toggle All Input"
+      ]
+    }
+  ]
 });
 
 const filtersContainer = dom({
   tag: "ul",
-  attributes: { class: "filters" },
+  attributes: { 
+    class: "filters",
+    "data-testid": "footer-navigation"
+  },
   children: [
     {
       tag: "li",
@@ -269,21 +310,34 @@ const clearCompletedButton = dom({
   tag: "button",
   attributes: {
     class: "clear-completed",
+    disabled: true,
     onclick: clearCompleted
   },
   children: ["Clear completed"]
 });
 
+const inputContainer = dom({
+  tag: "div",
+  attributes: { class: "input-container" },
+  children: []
+});
+
 const mainSection = dom({
-  tag: "section",
-  attributes: { class: "main" },
+  tag: "main",
+  attributes: { 
+    class: "main",
+    "data-testid": "main"
+  },
   children: []
 });
 
 const footerSection = dom({
   tag: "footer",
-  attributes: { class: "footer" },
-  children: []
+  attributes: { 
+    class: "footer",
+    "data-testid": "footer"
+  },
+  
 });
 
 createEffect(() => {
@@ -296,7 +350,16 @@ createEffect(() => {
   toggleAllCheckbox.checked = allCompleted;
 });
 
-// Hide/show main and footer sections based on whether there are todos
+// Update clear completed button state
+createEffect(() => {
+  const hasCompleted = todos().some(todo => todo.completed);
+  if (hasCompleted) {
+    clearCompletedButton.removeAttribute('disabled');
+  } else {
+    clearCompletedButton.setAttribute('disabled', 'true');
+  }
+});
+
 createEffect(() => {
   const hasTodos = todos().length > 0;
   mainSection.style.display = hasTodos ? '' : 'none';
@@ -305,11 +368,17 @@ createEffect(() => {
 
 const App = dom({
   tag: "section",
-  attributes: { class: "todoapp" },
+  attributes: { 
+    class: "todoapp",
+    id: "root"
+  },
   children: [
     {
       tag: "header",
-      attributes: { class: "header" },
+      attributes: { 
+        class: "header",
+        "data-testid": "header"
+      },
       children: [
         {
           tag: "h1",
@@ -320,16 +389,59 @@ const App = dom({
   ]
 });
 
-App.children[0].appendChild(todoInput);
-App.appendChild(mainSection);
-App.appendChild(footerSection);
+// Build the input container
+inputContainer.appendChild(todoInput);
+inputContainer.appendChild(todoInputLabel);
 
+// Add input container to header
+App.children[0].appendChild(inputContainer);
+
+// Build main section
+App.appendChild(mainSection);
 mainSection.appendChild(toggleAllCheckbox);
 mainSection.appendChild(toggleAllLabel);
 mainSection.appendChild(todosContainer);
 
+// Build footer section
+App.appendChild(footerSection);
 footerSection.appendChild(counterDisplay);
 footerSection.appendChild(filtersContainer);
 footerSection.appendChild(clearCompletedButton);
 
+// Create info footer
+const infoFooter = dom({
+  tag: "footer",
+  attributes: { class: "info" },
+  children: [
+    {
+      tag: "p",
+      children: ["Double-click to edit a todo"]
+    },
+    {
+      tag: "p",
+      children: [
+        "Created by the ",
+        {
+          tag: "a",
+          attributes: { href: "http://todomvc.com" },
+          children: ["TodoMVC Team"]
+        }
+      ]
+    },
+    {
+      tag: "p",
+      children: [
+        "Part of ",
+        {
+          tag: "a",
+          attributes: { href: "http://todomvc.com" },
+          children: ["TodoMVC"]
+        }
+      ]
+    }
+  ]
+});
+
 document.body.append(App);
+document.body.append(infoFooter);
+document.body.classList.add("learn-bar");
