@@ -4,6 +4,7 @@ const { dom, createSignal, createEffect } = fm;
 
 const [counter, setCounter] = createSignal(0);
 const [todos, setTodos] = createSignal([]);
+const [editingId, setEditingId] = createSignal(null);
 const [filter, setFilter] = createSignal('all'); 
 
 const todoInput = dom({
@@ -40,6 +41,14 @@ function toggleTodo(id) {
     todo.id === id ? { ...todo, completed: !todo.completed } : todo
   );
   setTodos(newTodos);
+}
+
+function editTodo(id, newText) {
+  const newTodos = todos().map(todo => 
+    todo.id === id ? { ...todo, text: newText } : todo
+  );
+  setTodos(newTodos);
+  setEditingId(null);
 }
 
 function clearCompleted() {
@@ -182,7 +191,7 @@ createEffect(() => {
     const todoItem = dom({
       tag: "li",
       attributes: { 
-        class: todo.completed ? "completed" : ""
+        class: editingId() === todo.id ? "editing" : (todo.completed ? "completed" : "")
       },
       children: [
         {
@@ -200,7 +209,9 @@ createEffect(() => {
             },
             {
               tag: "label",
-              attributes: {},
+              attributes: {
+                ondblclick: () => setEditingId(todo.id)
+              },
               children: [todo.text]
             },
             {
@@ -212,7 +223,19 @@ createEffect(() => {
               children: []
             }
           ]
-        }
+        },
+        ...(editingId() === todo.id ? [{
+          tag: "input",
+          attributes: {
+            class: "edit",
+            value: todo.text,
+            onblur: (e) => editTodo(todo.id, e.target.value),
+            onkeypress: (e) => {
+              if (e.key === 'Enter') editTodo(todo.id, e.target.value);
+              if (e.key === 'Escape') setEditingId(null);
+            }
+          }
+        }] : [])
       ]
     });
     
