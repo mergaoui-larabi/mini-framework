@@ -1,9 +1,26 @@
 import * as fm from "../../framwork/index.js";
+import { eventEmitter } from "../../framwork/event/event_emitter.js";
 
 const { dom, createSignal, createEffect } = fm;
 
 const [counter, setCounter] = createSignal(0);
 const [todos, setTodos] = createSignal([]);
+const [filter, setFilter] = createSignal('all');
+
+// Listen for filter events
+eventEmitter.on('filter-all', () => setFilter('all'));
+eventEmitter.on('filter-active', () => setFilter('active'));
+eventEmitter.on('filter-completed', () => setFilter('completed'));
+
+function handleHashChange() {
+  const hash = window.location.hash.slice(1) || '/';
+  if (hash === '/') setFilter('all');
+  else if (hash === '/active') setFilter('active');
+  else if (hash === '/completed') setFilter('completed');
+}
+
+window.addEventListener('hashchange', handleHashChange);
+handleHashChange(); 
 
 const todoInput = dom({
   tag: "input",
@@ -35,12 +52,22 @@ function removeTodo(id) {
 }
 
 function toggleTodo(id) {
+  const newTodos = todos().map(todo => 
+    todo.id === id ? { ...todo, completed: !todo.completed } : todo
+  );
+  setTodos(newTodos);
 }
 
 function clearCompleted() {
+  const newTodos = todos().filter(todo => !todo.completed);
+  setTodos(newTodos);
+  setCounter(newTodos.length);
 }
 
 function toggleAll() {
+  const allCompleted = todos().every(todo => todo.completed);
+  const newTodos = todos().map(todo => ({ ...todo, completed: !allCompleted }));
+  setTodos(newTodos);
 }
 
 const todosContainer = dom({
@@ -86,7 +113,10 @@ const filtersContainer = dom({
         attributes: { 
           class: "selected", 
           href: "#/",
-          onclick: (e) => { e.preventDefault(); /* TODO: filter all */ }
+          onclick: (e) => {
+            e.preventDefault();
+            eventEmitter.emit('filter-all');
+          }
         },
         children: ["All"]
       }]
@@ -98,7 +128,10 @@ const filtersContainer = dom({
         tag: "a",
         attributes: { 
           href: "#/active",
-          onclick: (e) => { e.preventDefault(); /* TODO: filter active */ }
+          onclick: (e) => {
+            e.preventDefault();
+            eventEmitter.emit('filter-active');
+          }
         },
         children: ["Active"]
       }]
@@ -110,7 +143,10 @@ const filtersContainer = dom({
         tag: "a",
         attributes: { 
           href: "#/completed",
-          onclick: (e) => { e.preventDefault(); /* TODO: filter completed */ }
+          onclick: (e) => {
+            e.preventDefault();
+            eventEmitter.emit('filter-completed');
+          }
         },
         children: ["Completed"]
       }]
@@ -149,7 +185,13 @@ createEffect(() => {
     todosContainer.removeChild(todosContainer.firstChild);
   }
   
-  todos().forEach((todo) => {
+  const filteredTodos = todos().filter(todo => {
+    if (filter() === 'active') return !todo.completed;
+    if (filter() === 'completed') return todo.completed;
+    return true; 
+  });
+  
+  filteredTodos.forEach((todo) => {
     const todoItem = dom({
       tag: "li",
       attributes: { 
@@ -165,7 +207,7 @@ createEffect(() => {
               attributes: {
                 class: "toggle",
                 type: "checkbox",
-                checked: todo.completed,
+                ...(todo.completed ? { checked: "checked" } : {}),
                 onchange: () => toggleTodo(todo.id)
               }
             },
@@ -219,7 +261,6 @@ const App = dom({
   ]
 });
 
-// Use appendChild with dom elements
 App.children[0].appendChild(todoInput);
 App.children[1].appendChild(toggleAllCheckbox);
 App.children[1].appendChild(toggleAllLabel);
