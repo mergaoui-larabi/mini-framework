@@ -12,8 +12,9 @@
 ## Quick Start
 
 ```javascript
-import { dom } from './dom/dom.js';
-import { createSignal } from './state/signal.js';
+
+import * as fm from "../../framwork/index.js";
+const { dom, createSignal } = fm;
 
 const [count, setCount] = createSignal(0);
 
