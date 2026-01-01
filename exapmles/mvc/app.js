@@ -1,22 +1,21 @@
 import * as fm from "../../framwork/index.js";
 
-const { dom, createSignal, createEffect } = fm;
+const { dom, createSignal, createEffect, Router, useHash } = fm;
 
 const [todos, setTodos] = createSignal([]);
 const [editingId, setEditingId] = createSignal(null);
-const [filter, setFilter] = createSignal('all');
 
-// Handle hash changes for filters
-function handleHashChange() {
-  const hash = window.location.hash;
-  if (hash === '#/active') setFilter('active');
-  else if (hash === '#/completed') setFilter('completed');
-  else setFilter('all');
-}
+// Initialize router
+Router.instance.initRouter();
 
-// Listen for hash changes
-window.addEventListener('hashchange', handleHashChange);
-handleHashChange(); // Set initial filter based on current hash 
+// Use router's hash signal for filter
+const hash = useHash();
+const filter = () => {
+  const h = hash();
+  if (h === '#/active') return 'active';
+  if (h === '#/completed') return 'completed';
+  return 'all';
+}; 
 
 const todoInput = dom({
   tag: "input",
