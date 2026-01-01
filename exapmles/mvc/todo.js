@@ -252,6 +252,8 @@ createEffect(() => {
 footerSection.appendChild(todoCounter);
 
 // Filters with reactive router (hash changes automatically update filter via useHash)
+const navigate = fm.useNavigate();
+
 footerSection.appendChild(dom({
     tag: "ul",
     attributes: { class: "filters" },
@@ -262,7 +264,11 @@ footerSection.appendChild(dom({
                 tag: "a",
                 attributes: {
                     class: () => filter() === 'all' ? 'selected' : '',
-                    href: "#/"
+                    href: "#/",
+                    onclick: (e) => {
+                        e.preventDefault();
+                        navigate("#/", true);
+                    }
                 },
                 children: ["All"]
             }]
@@ -273,7 +279,11 @@ footerSection.appendChild(dom({
                 tag: "a",
                 attributes: {
                     class: () => filter() === 'active' ? 'selected' : '',
-                    href: "#/active"
+                    href: "#/active",
+                    onclick: (e) => {
+                        e.preventDefault();
+                        navigate("#/active", true);
+                    }
                 },
                 children: ["Active"]
             }]
@@ -284,7 +294,11 @@ footerSection.appendChild(dom({
                 tag: "a",
                 attributes: {
                     class: () => filter() === 'completed' ? 'selected' : '',
-                    href: "#/completed"
+                    href: "#/completed",
+                    onclick: (e) => {
+                        e.preventDefault();
+                        navigate("#/completed", true);
+                    }
                 },
                 children: ["Completed"]
             }]

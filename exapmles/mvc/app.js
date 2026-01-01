@@ -1,10 +1,10 @@
 import * as fm from "../../framwork/index.js";
 
-const { dom, createSignal, createEffect } = fm;
+const { dom, createSignal, createEffect, useHash, useNavigate } = fm;
 
 const [todos, setTodos] = createSignal([]);
 const [editingId, setEditingId] = createSignal(null);
-const [filter, setFilter] = createSignal('all'); 
+const [filter, setFilter] = createSignal('all');
 
 const todoInput = dom({
   tag: "input",
@@ -67,6 +67,22 @@ const todosContainer = dom({
 
 // Manually handle list updates efficiently
 const todoElements = new Map();
+
+// Initialize the Router
+const hash = useHash();
+const navigate = useNavigate();
+
+// Update filter to derive from hash
+createEffect(() => {
+  const currentHash = hash();
+  if (currentHash === '#/active') {
+    setFilter('active');
+  } else if (currentHash === '#/completed') {
+    setFilter('completed');
+  } else {
+    setFilter('all');
+  }
+});
 
 createEffect(() => {
   const filteredTodos = todos().filter(todo => {
