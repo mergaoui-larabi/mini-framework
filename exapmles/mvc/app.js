@@ -1,10 +1,51 @@
 import * as fm from "../../framwork/index.js";
 
-const { dom, createSignal, createEffect } = fm;
+const { dom, createSignal, createEffect, createMemo, batch, useHash, useNavigate, Router } = fm;
+
+// Initialize Router
+Router.instance.initRouter();
 
 const [todos, setTodos] = createSignal([]);
 const [editingId, setEditingId] = createSignal(null);
-const [filter, setFilter] = createSignal('all'); 
+const [filter, setFilter] = createSignal('all');
+
+// Use createMemo for filtered todos
+const filteredTodos = createMemo(() => {
+  const currentFilter = filter();
+  return todos().filter(todo => {
+    if (currentFilter === 'active') return !todo.completed;
+    if (currentFilter === 'completed') return todo.completed;
+    return true;
+  });
+});
+
+// Use createMemo for counts
+const activeCount = createMemo(() => 
+  todos().filter(t => !t.completed).length
+);
+
+const completedCount = createMemo(() => 
+  todos().filter(t => t.completed).length
+);
+
+const allCompleted = createMemo(() => 
+  todos().length > 0 && todos().every(t => t.completed)
+);
+
+const hash = useHash();
+const navigate = useNavigate();
+
+// Sync filter with hash
+createEffect(() => {
+  const currentHash = hash();
+  if (currentHash === '#/active') {
+    setFilter('active');
+  } else if (currentHash === '#/completed') {
+    setFilter('completed');
+  } else {
+    setFilter('all');
+  }
+});
 
 const todoInput = dom({
   tag: "input",
@@ -16,7 +57,7 @@ const todoInput = dom({
     placeholder: "What needs to be done?",
     autofocus: true,
     onkeypress: (e) => {
-      if (e.key === 'Enter') {
+      if (e.nativeEvent.code === 'Enter') {
         addTodo();
       }
     }
@@ -35,8 +76,11 @@ const todoInputLabel = dom({
 function addTodo() {
   const inputValue = todoInput.value.trim();
   if (inputValue) {
-    setTodos([...todos(), { text: inputValue, completed: false, id: Date.now() }]);
-    todoInput.value = ''; 
+    // Use batch for multiple updates
+    batch(() => {
+      setTodos([...todos(), { text: inputValue, completed: false, id: Date.now() }]);
+      todoInput.value = '';
+    });
   }
 }
 
@@ -67,8 +111,8 @@ function clearCompleted() {
 }
 
 function toggleAll() {
-  const allCompleted = todos().every(todo => todo.completed);
-  setTodos(todos().map(todo => ({ ...todo, completed: !allCompleted })));
+  const shouldComplete = !allCompleted();
+  setTodos(todos().map(todo => ({ ...todo, completed: shouldComplete })));
 }
 
 // Create a static ul element
@@ -85,14 +129,10 @@ const todosContainer = dom({
 const todoElements = new Map();
 
 createEffect(() => {
-  const filteredTodos = todos().filter(todo => {
-    if (filter() === 'active') return !todo.completed;
-    if (filter() === 'completed') return todo.completed;
-    return true;
-  });
-
+  const filtered = filteredTodos();
+  
   // Track which todos should exist
-  const currentIds = new Set(filteredTodos.map(t => t.id));
+  const currentIds = new Set(filtered.map(t => t.id));
   
   // Remove elements that shouldn't exist anymore
   todoElements.forEach((element, id) => {
@@ -103,7 +143,7 @@ createEffect(() => {
   });
 
   // Add or update elements
-  filteredTodos.forEach((todo, index) => {
+  filtered.forEach((todo, index) => {
     let liElement = todoElements.get(todo.id);
     
     if (!liElement) {
@@ -118,7 +158,7 @@ createEffect(() => {
   });
 
   // Reorder elements to match filtered order
-  filteredTodos.forEach((todo, index) => {
+  filtered.forEach((todo, index) => {
     const element = todoElements.get(todo.id);
     const currentIndex = Array.from(todosContainer.children).indexOf(element);
     if (currentIndex !== index) {
@@ -173,7 +213,7 @@ function createTodoElement(todo) {
       }
     ]
   });
-
+  
   // Watch for editing state changes
   createEffect(() => {
     const isEditing = editingId() === todo.id;
@@ -193,8 +233,8 @@ function createTodoElement(todo) {
           value: currentTodo.text,
           onblur: (e) => editTodo(todo.id, e.target.value),
           onkeypress: (e) => {
-            if (e.key === 'Enter') editTodo(todo.id, e.target.value);
-            if (e.key === 'Escape') setEditingId(null);
+            if (e.nativeEvent.key === 'Enter') editTodo(todo.id, e.target.value);
+            if (e.nativeEvent.key === 'Escape') setEditingId(null);
           }
         }
       });
@@ -224,10 +264,16 @@ function updateTodoElement(liElement, todo) {
   }
 }
 
+// Use reactive children function for counter display
 const counterDisplay = dom({
   tag: "span",
   attributes: { class: "todo-count" },
-  children: []
+  children: [
+    () => {
+      const count = activeCount();
+      return `${count} ${count === 1 ? 'item' : 'items'} left`;
+    }
+  ]
 });
 
 const toggleAllCheckbox = dom({
@@ -239,6 +285,11 @@ const toggleAllCheckbox = dom({
     "data-testid": "toggle-all",
     onchange: toggleAll
   }
+});
+
+// Update checkbox reactively
+createEffect(() => {
+  toggleAllCheckbox.checked = allCompleted();
 });
 
 const toggleAllLabel = dom({
@@ -259,6 +310,7 @@ const toggleAllLabel = dom({
   ]
 });
 
+// Use reactive class attribute
 const filtersContainer = dom({
   tag: "ul",
   attributes: { 
@@ -272,8 +324,7 @@ const filtersContainer = dom({
         tag: "a",
         attributes: { 
           class: () => filter() === 'all' ? 'selected' : '',
-          href: "#/",
-          onclick: () => setFilter('all')
+          href: "#/"
         },
         children: ["All"]
       }]
@@ -284,8 +335,7 @@ const filtersContainer = dom({
         tag: "a",
         attributes: { 
           class: () => filter() === 'active' ? 'selected' : '',
-          href: "#/active",
-          onclick: () => setFilter('active')
+          href: "#/active"
         },
         children: ["Active"]
       }]
@@ -296,8 +346,7 @@ const filtersContainer = dom({
         tag: "a",
         attributes: { 
           class: () => filter() === 'completed' ? 'selected' : '',
-          href: "#/completed",
-          onclick: () => setFilter('completed')
+          href: "#/completed"
         },
         children: ["Completed"]
       }]
@@ -309,10 +358,19 @@ const clearCompletedButton = dom({
   tag: "button",
   attributes: {
     class: "clear-completed",
-    disabled: true,
     onclick: clearCompleted
   },
   children: ["Clear completed"]
+});
+
+// Update button disabled state reactively
+createEffect(() => {
+  const hasCompleted = completedCount() > 0;
+  if (hasCompleted) {
+    clearCompletedButton.removeAttribute('disabled');
+  } else {
+    clearCompletedButton.setAttribute('disabled', 'true');
+  }
 });
 
 const inputContainer = dom({
@@ -335,30 +393,10 @@ const footerSection = dom({
   attributes: { 
     class: "footer",
     "data-testid": "footer"
-  },
-  
-});
-
-createEffect(() => {
-  const count = todos().filter(todo => !todo.completed).length;
-  counterDisplay.innerHTML = `<strong>${count}</strong> ${count === 1 ? 'item' : 'items'} left`;
-});
-
-createEffect(() => {
-  const allCompleted = todos().length > 0 && todos().every(todo => todo.completed);
-  toggleAllCheckbox.checked = allCompleted;
-});
-
-// Update clear completed button state
-createEffect(() => {
-  const hasCompleted = todos().some(todo => todo.completed);
-  if (hasCompleted) {
-    clearCompletedButton.removeAttribute('disabled');
-  } else {
-    clearCompletedButton.setAttribute('disabled', 'true');
   }
 });
 
+// Hide/show sections reactively
 createEffect(() => {
   const hasTodos = todos().length > 0;
   mainSection.style.display = hasTodos ? '' : 'none';

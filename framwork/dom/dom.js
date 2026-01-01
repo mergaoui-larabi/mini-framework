@@ -6,8 +6,8 @@ import { eventManager } from "../event/event.js";
 const devMode = false;
 
 export function dom(node) {
-    if (!valideHtmlNode(node)) return;
-    if (devMode && !validateDomNode(node)) return;
+    // if (!valideHtmlNode(node)) return;
+    // if (devMode && !validateDomNode(node)) return;
 
     if (typeof node === "string") {
         return document.createTextNode(node ?? "");
@@ -19,17 +19,44 @@ export function dom(node) {
     return el;
 }
 
+// Validate attribute name before setting it
+function isValidAttributeName(name) {
+    return /^[a-zA-Z_][\w\-:.]*$/.test(name);
+}
+
 // Handles attributes, including reactive ones
 function setAttributes(el, attributes = {}) {
     for (const [key, value] of Object.entries(attributes)) {
+        if (!isValidAttributeName(key)) {
+            console.warn(`Invalid attribute name: ${key}`);
+            continue;
+        }
+
         if (key.startsWith("on") && typeof value === "function") {
             const eventName = key.toLowerCase().substring(2);
-            el.addEventListener(eventName, value);
+            eventManager.linkNodeToHandlers(el, eventName, value);
         } else if (typeof value === "function") {
-            // reactive attribute
-            createEffect(() => el.setAttribute(key, value()));
+            // Reactive attribute
+            createEffect(() => {
+                const result = value();
+                // Handle boolean attributes explicitly
+                if (typeof el[key] === "boolean") {
+                    el[key] = !!result;
+                } else if (result === null || result === undefined) {
+                    el.removeAttribute(key);
+                } else {
+                    el.setAttribute(key, result);
+                }
+            });
         } else {
-            el.setAttribute(key, value);
+            // Static attribute
+            if (typeof el[key] === "boolean") {
+                el[key] = !!value;
+            } else if (value === null || value === undefined) {
+                el.removeAttribute(key);
+            } else {
+                el.setAttribute(key, value);
+            }
         }
     }
 }
@@ -38,37 +65,36 @@ function setAttributes(el, attributes = {}) {
 function appendChildren(el, children = []) {
     if (typeof children === "function") {
         // reactive children array - use reconciliation instead of clearing
-        let previousChildren = [];
         const childElementsMap = new Map(); // Track elements by a stable key
-        
+
         createEffect(() => {
             const newChildren = children();
-            
+
             // Convert to array if not already
             const newChildrenArray = Array.isArray(newChildren) ? newChildren : [newChildren];
-            
+
             // Create a map of new children by their identity
             const newChildrenMap = new Map();
             const newChildElements = [];
-            
+
             newChildrenArray.forEach((child, index) => {
                 // Try to find a stable key
                 const key = child?.id || child?.tag + index;
                 newChildrenMap.set(key, child);
-                
+
                 // Check if we already have this element
                 let childEl = childElementsMap.get(key);
-                
+
                 if (!childEl) {
                     // Create new element
                     childEl = dom(child);
                 }
-                
+
                 if (childEl) {
                     newChildElements.push({ key, element: childEl });
                 }
             });
-            
+
             // Remove elements that no longer exist
             childElementsMap.forEach((element, key) => {
                 if (!newChildrenMap.has(key)) {
@@ -78,13 +104,13 @@ function appendChildren(el, children = []) {
                     childElementsMap.delete(key);
                 }
             });
-            
+
             // Add/reorder elements
             newChildElements.forEach(({ key, element }, index) => {
                 childElementsMap.set(key, element);
-                
+
                 const currentIndex = Array.from(el.children).indexOf(element);
-                
+
                 if (currentIndex === -1) {
                     // Element doesn't exist in DOM, add it
                     if (index >= el.children.length) {
@@ -101,12 +127,11 @@ function appendChildren(el, children = []) {
                     }
                 }
             });
-            
-            previousChildren = newChildrenArray;
+
         });
         return;
     }
-    
+
     for (const child of children) {
         let childEl;
 
