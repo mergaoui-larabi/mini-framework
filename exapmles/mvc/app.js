@@ -13,7 +13,11 @@ const todoInput = dom({
     placeholder: "What needs to be done?",
     autofocus: true,
     onkeypress: (e) => {
-      if (e.key === 'Enter') {
+      console.log(e.nativeEvent.code);
+      console.log(e);
+      
+      if (e.nativeEvent.code === 'Enter') {
+        console.log("toto");        
         addTodo();
       }
     }
@@ -165,8 +169,8 @@ function createTodoElement(todo) {
           value: todo.text,
           onblur: (e) => editTodo(todo.id, e.target.value),
           onkeypress: (e) => {
-            if (e.key === 'Enter') editTodo(todo.id, e.target.value);
-            if (e.key === 'Escape') setEditingId(null);
+            if (e.nativeEvent.key === 'Enter') editTodo(todo.id, e.target.value);
+            if (e.nativeEvent.key === 'Escape') setEditingId(null);
           }
         }
       });

@@ -24,7 +24,7 @@ function setAttributes(el, attributes = {}) {
     for (const [key, value] of Object.entries(attributes)) {
         if (key.startsWith("on") && typeof value === "function") {
             const eventName = key.toLowerCase().substring(2);
-            el.addEventListener(eventName, value);
+            eventManager.linkNodeToHandlers(el, eventName, value)
         } else if (typeof value === "function") {
             // reactive attribute
             createEffect(() => el.setAttribute(key, value()));
@@ -38,7 +38,6 @@ function setAttributes(el, attributes = {}) {
 function appendChildren(el, children = []) {
     if (typeof children === "function") {
         // reactive children array - use reconciliation instead of clearing
-        let previousChildren = [];
         const childElementsMap = new Map(); // Track elements by a stable key
         
         createEffect(() => {
@@ -102,7 +101,6 @@ function appendChildren(el, children = []) {
                 }
             });
             
-            previousChildren = newChildrenArray;
         });
         return;
     }
