@@ -20,15 +20,15 @@ const filteredTodos = createMemo(() => {
 });
 
 // Use createMemo for counts
-const activeCount = createMemo(() => 
+const activeCount = createMemo(() =>
   todos().filter(t => !t.completed).length
 );
 
-const completedCount = createMemo(() => 
+const completedCount = createMemo(() =>
   todos().filter(t => t.completed).length
 );
 
-const allCompleted = createMemo(() => 
+const allCompleted = createMemo(() =>
   todos().length > 0 && todos().every(t => t.completed)
 );
 
@@ -88,10 +88,11 @@ function removeTodo(id) {
 }
 
 // Update the `toggleTodo` function to use signals for marking todos as completed
-function toggleTodo(id) {
+function toggleTodo(id, value) {
+  console.log(id, value)
   setTodos(todos().map(todo => {
     if (todo.id === id) {
-      return { ...todo, completed: !todo.completed };
+      return { ...todo, completed: value };
     }
     return todo;
   }));
@@ -100,13 +101,13 @@ function toggleTodo(id) {
 function editTodo(id, newText) {
   const t = newText.trim();
   if (t) {
-    setTodos(todos().map(todo => 
+    setTodos(todos().map(todo =>
       todo.id === id ? { ...todo, text: t } : todo
     ));
     setEditingId(null);
   } else {
     removeTodo(id);
-     activeCount();
+    activeCount();
     completedCount();
   }
 }
@@ -123,7 +124,7 @@ function toggleAll() {
 // Create a static ul element
 const todosContainer = dom({
   tag: "ul",
-  attributes: { 
+  attributes: {
     class: "todo-list",
   },
   children: []
@@ -134,10 +135,10 @@ const todoElements = new Map();
 
 createEffect(() => {
   const filtered = filteredTodos();
-  
+
   // Track which todos should exist
   const currentIds = new Set(filtered.map(t => t.id));
-  
+
   // Remove elements that shouldn't exist anymore
   todoElements.forEach((element, id) => {
     if (!currentIds.has(id)) {
@@ -149,14 +150,14 @@ createEffect(() => {
   // Add or update elements
   filtered.forEach((todo, index) => {
     let liElement = todoElements.get(todo.id);
-    
+
     if (!liElement) {
       // Create new element
       liElement = createTodoElement(todo);
       todoElements.set(todo.id, liElement);
       todosContainer.appendChild(liElement);
     }
-    
+
     // Always update to ensure completed state is reflected
     updateTodoElement(liElement, todo);
   });
@@ -178,7 +179,7 @@ createEffect(() => {
 function createTodoElement(todo) {
   const li = dom({
     tag: "li",
-    attributes: { 
+    attributes: {
       class: todo.completed ? "completed" : "",
     },
     children: [
@@ -192,7 +193,7 @@ function createTodoElement(todo) {
               class: "toggle",
               type: "checkbox",
               ...(todo.completed ? { checked: "checked" } : {}),
-              onchange: () => toggleTodo(todo.id)
+              onchange: (e) => toggleTodo(todo.id, e.nativeEvent.target.checked)
             }
           },
           {
@@ -213,7 +214,7 @@ function createTodoElement(todo) {
       }
     ]
   });
-  
+
   // Watch for editing state changes
   createEffect(() => {
     const isEditing = editingId() === todo.id;
@@ -221,7 +222,7 @@ function createTodoElement(todo) {
     if (isEditing) {
       li.setAttribute("data-testid", "todo-item");
     }
-    
+
     // Handle edit input
     let editInput = li.querySelector('.edit');
     if (isEditing && !editInput) {
@@ -251,14 +252,14 @@ function createTodoElement(todo) {
 function updateTodoElement(liElement, todo) {
   const isEditing = editingId() === todo.id;
   liElement.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
-  
+
   const checkbox = liElement.querySelector('.toggle');
   const label = liElement.querySelector('label');
-  
+
   if (checkbox) {
     checkbox.checked = todo.completed;
   }
-  
+
   if (label) {
     label.textContent = todo.text;
   }
@@ -293,7 +294,7 @@ createEffect(() => {
 
 const toggleAllLabel = dom({
   tag: "label",
-  attributes: { 
+  attributes: {
     class: "toggle-all-label",
     for: "toggle-all"
   },
@@ -312,7 +313,7 @@ const toggleAllLabel = dom({
 // Use reactive class attribute
 const filtersContainer = dom({
   tag: "ul",
-  attributes: { 
+  attributes: {
     class: "filters",
   },
   children: [
@@ -320,7 +321,7 @@ const filtersContainer = dom({
       tag: "li",
       children: [{
         tag: "a",
-        attributes: { 
+        attributes: {
           class: () => filter() === 'all' ? 'selected' : '',
           href: "#/"
         },
@@ -331,7 +332,7 @@ const filtersContainer = dom({
       tag: "li",
       children: [{
         tag: "a",
-        attributes: { 
+        attributes: {
           class: () => filter() === 'active' ? 'selected' : '',
           href: "#/active"
         },
@@ -342,7 +343,7 @@ const filtersContainer = dom({
       tag: "li",
       children: [{
         tag: "a",
-        attributes: { 
+        attributes: {
           class: () => filter() === 'completed' ? 'selected' : '',
           href: "#/completed"
         },
@@ -379,7 +380,7 @@ const inputContainer = dom({
 
 const mainSection = dom({
   tag: "main",
-  attributes: { 
+  attributes: {
     class: "main",
   },
   children: []
@@ -387,7 +388,7 @@ const mainSection = dom({
 
 const footerSection = dom({
   tag: "footer",
-  attributes: { 
+  attributes: {
     class: "footer",
   }
 });
@@ -401,14 +402,14 @@ createEffect(() => {
 
 const App = dom({
   tag: "section",
-  attributes: { 
+  attributes: {
     class: "todoapp",
     id: "root"
   },
   children: [
     {
       tag: "header",
-      attributes: { 
+      attributes: {
         class: "header",
       },
       children: [
