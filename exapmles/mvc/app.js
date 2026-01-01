@@ -154,6 +154,23 @@ function createTodoElement(todo) {
     ]
   });
 
+  createEffect(() => {
+    const count = todos().filter(todo => !todo.completed).length;
+    counterDisplay.innerHTML = `<strong>${count}</strong> ${count === 1 ? 'item' : 'items'} left`;
+  });
+  
+  createEffect(() => {
+    const allCompleted = todos().length > 0 && todos().every(todo => todo.completed);
+    toggleAllCheckbox.checked = allCompleted;
+  });
+  
+  // Hide/show main and footer sections based on whether there are todos
+  createEffect(() => {
+    const hasTodos = todos().length > 0;
+    mainSection.style.display = hasTodos ? '' : 'none';
+    footerSection.style.display = hasTodos ? '' : 'none';
+  });
+  
   // Watch for editing state changes
   createEffect(() => {
     const isEditing = editingId() === todo.id;
@@ -290,22 +307,6 @@ const footerSection = dom({
   children: []
 });
 
-createEffect(() => {
-  const count = todos().filter(todo => !todo.completed).length;
-  counterDisplay.innerHTML = `<strong>${count}</strong> ${count === 1 ? 'item' : 'items'} left`;
-});
-
-createEffect(() => {
-  const allCompleted = todos().length > 0 && todos().every(todo => todo.completed);
-  toggleAllCheckbox.checked = allCompleted;
-});
-
-// Hide/show main and footer sections based on whether there are todos
-createEffect(() => {
-  const hasTodos = todos().length > 0;
-  mainSection.style.display = hasTodos ? '' : 'none';
-  footerSection.style.display = hasTodos ? '' : 'none';
-});
 
 const App = dom({
   tag: "section",

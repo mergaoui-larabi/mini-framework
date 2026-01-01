@@ -84,7 +84,7 @@ export class GlobalEventManager {
             this.root.addEventListener(
                 nativeName,
                 (e) => this.handleEvent(e, frameworkEventName),
-                phase === 'capture'
+                // phase === 'capture'
             );
         });
     }
