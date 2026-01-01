@@ -13,33 +13,23 @@ const [filter, setFilter] = createSignal('all');
 const filteredTodos = createMemo(() => {
   const currentFilter = filter();
   return todos().filter(todo => {
-    const isCompleted = typeof todo.completed === 'function' ? todo.completed() : todo.completed;
-    if (currentFilter === 'active') return !isCompleted;
-    if (currentFilter === 'completed') return isCompleted;
+    if (currentFilter === 'active') return !todo.completed;
+    if (currentFilter === 'completed') return todo.completed;
     return true;
   });
 });
 
 // Use createMemo for counts
 const activeCount = createMemo(() => 
-  todos().filter(t => {
-    const isCompleted = typeof t.completed === 'function' ? t.completed() : t.completed;
-    return !isCompleted;
-  }).length
+  todos().filter(t => !t.completed).length
 );
 
 const completedCount = createMemo(() => 
-  todos().filter(t => {
-    const isCompleted = typeof t.completed === 'function' ? t.completed() : t.completed;
-    return isCompleted;
-  }).length
+  todos().filter(t => t.completed).length
 );
 
 const allCompleted = createMemo(() => 
-  todos().length > 0 && todos().every(t => {
-    const isCompleted = typeof t.completed === 'function' ? t.completed() : t.completed;
-    return isCompleted;
-  })
+  todos().length > 0 && todos().every(t => t.completed)
 );
 
 const hash = useHash();
@@ -63,7 +53,6 @@ const todoInput = dom({
     class: "new-todo",
     id: "todo-input",
     type: "text",
-    "data-testid": "text-input",
     placeholder: "What needs to be done?",
     autofocus: true,
     onkeypress: (e) => {
@@ -86,17 +75,9 @@ const todoInputLabel = dom({
 function addTodo() {
   const inputValue = todoInput.value.trim();
   if (inputValue) {
-    // Create signal for completed state
-    const [completed, setCompleted] = createSignal(false);
-    
     // Use batch for multiple updates
     batch(() => {
-      setTodos([...todos(), { 
-        text: inputValue, 
-        completed, 
-        setCompleted,
-        id: Date.now() 
-      }]);
+      setTodos([...todos(), { text: inputValue, completed: false, id: Date.now() }]);
       todoInput.value = '';
     });
   }
@@ -106,42 +87,37 @@ function removeTodo(id) {
   setTodos(todos().filter(todo => todo.id !== id));
 }
 
+// Update the `toggleTodo` function to use signals for marking todos as completed
 function toggleTodo(id) {
-  const todo = todos().find(t => t.id === id);
-  if (todo && todo.setCompleted) {
-    todo.setCompleted(!todo.completed());
-  }
+  setTodos(todos().map(todo => {
+    if (todo.id === id) {
+      return { ...todo, completed: !todo.completed };
+    }
+    return todo;
+  }));
 }
 
 function editTodo(id, newText) {
   const t = newText.trim();
   if (t) {
     setTodos(todos().map(todo => 
-      todo.id === id ? { ...todo, text: newText } : todo
+      todo.id === id ? { ...todo, text: t } : todo
     ));
     setEditingId(null);
   } else {
     removeTodo(id);
-    // Update counts reactively after deletion
-    activeCount();
+     activeCount();
     completedCount();
   }
 }
 
 function clearCompleted() {
-  setTodos(todos().filter(todo => {
-    const isCompleted = typeof todo.completed === 'function' ? todo.completed() : todo.completed;
-    return !isCompleted;
-  }));
+  setTodos(todos().filter(todo => !todo.completed));
 }
 
 function toggleAll() {
   const shouldComplete = !allCompleted();
-  todos().forEach(todo => {
-    if (todo.setCompleted) {
-      todo.setCompleted(shouldComplete);
-    }
-  });
+  setTodos(todos().map(todo => ({ ...todo, completed: shouldComplete })));
 }
 
 // Create a static ul element
@@ -149,7 +125,6 @@ const todosContainer = dom({
   tag: "ul",
   attributes: { 
     class: "todo-list",
-    "data-testid": "todo-list"
   },
   children: []
 });
@@ -180,10 +155,10 @@ createEffect(() => {
       liElement = createTodoElement(todo);
       todoElements.set(todo.id, liElement);
       todosContainer.appendChild(liElement);
-    } else {
-      // Update existing element
-      updateTodoElement(liElement, todo);
     }
+    
+    // Always update to ensure completed state is reflected
+    updateTodoElement(liElement, todo);
   });
 
   // Reorder elements to match filtered order
@@ -204,12 +179,7 @@ function createTodoElement(todo) {
   const li = dom({
     tag: "li",
     attributes: { 
-      class: () => {
-        const isEditing = editingId() === todo.id;
-        const isCompleted = typeof todo.completed === 'function' ? todo.completed() : todo.completed;
-        return isEditing ? "editing" : (isCompleted ? "completed" : "");
-      },
-      "data-testid": "todo-item"
+      class: todo.completed ? "completed" : "",
     },
     children: [
       {
@@ -221,15 +191,13 @@ function createTodoElement(todo) {
             attributes: {
               class: "toggle",
               type: "checkbox",
-              "data-testid": "todo-item-toggle",
-              checked: () => typeof todo.completed === 'function' ? todo.completed() : todo.completed,
+              ...(todo.completed ? { checked: "checked" } : {}),
               onchange: () => toggleTodo(todo.id)
             }
           },
           {
             tag: "label",
             attributes: {
-              "data-testid": "todo-item-label",
               ondblclick: () => setEditingId(todo.id)
             },
             children: [todo.text]
@@ -238,7 +206,6 @@ function createTodoElement(todo) {
             tag: "button",
             attributes: {
               class: "destroy",
-              "data-testid": "todo-item-button",
               onclick: () => removeTodo(todo.id)
             }
           }
@@ -250,6 +217,7 @@ function createTodoElement(todo) {
   // Watch for editing state changes
   createEffect(() => {
     const isEditing = editingId() === todo.id;
+    li.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
     if (isEditing) {
       li.setAttribute("data-testid", "todo-item");
     }
@@ -281,9 +249,15 @@ function createTodoElement(todo) {
 }
 
 function updateTodoElement(liElement, todo) {
-  // Class is now reactive, so we don't need to manually update it
+  const isEditing = editingId() === todo.id;
+  liElement.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
   
+  const checkbox = liElement.querySelector('.toggle');
   const label = liElement.querySelector('label');
+  
+  if (checkbox) {
+    checkbox.checked = todo.completed;
+  }
   
   if (label) {
     label.textContent = todo.text;
@@ -308,7 +282,6 @@ const toggleAllCheckbox = dom({
     id: "toggle-all",
     class: "toggle-all",
     type: "checkbox",
-    "data-testid": "toggle-all",
     onchange: toggleAll
   }
 });
@@ -341,7 +314,6 @@ const filtersContainer = dom({
   tag: "ul",
   attributes: { 
     class: "filters",
-    "data-testid": "footer-navigation"
   },
   children: [
     {
@@ -409,7 +381,6 @@ const mainSection = dom({
   tag: "main",
   attributes: { 
     class: "main",
-    "data-testid": "main"
   },
   children: []
 });
@@ -418,7 +389,6 @@ const footerSection = dom({
   tag: "footer",
   attributes: { 
     class: "footer",
-    "data-testid": "footer"
   }
 });
 
@@ -440,7 +410,6 @@ const App = dom({
       tag: "header",
       attributes: { 
         class: "header",
-        "data-testid": "header"
       },
       children: [
         {
@@ -452,7 +421,6 @@ const App = dom({
   ]
 });
 
-// Build the input container
 inputContainer.appendChild(todoInput);
 inputContainer.appendChild(todoInputLabel);
 
