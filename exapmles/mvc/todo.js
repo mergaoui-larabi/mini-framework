@@ -126,7 +126,7 @@ const todoList = dom({
                                 type: "checkbox",
                                 checked: () => {
                                     const current = todos().find(t => t.id === todo.id);
-                                    return current && current.completed ? "checked" : undefined;
+                                    return current ? current.completed : false;
                                 },
                                 onchange: () => toggleTodo(todo.id)
                             }

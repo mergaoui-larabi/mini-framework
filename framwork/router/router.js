@@ -73,10 +73,11 @@ export class Router {
         if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
         if (url.origin !== location.origin) return;
 
-        if (url.pathname === location.pathname && url.search === location.search) {
+        if (url.href === location.href) {
+            event.preventDefault();
             return;
         }
-
+    
         event.preventDefault();
         this.navigate(url.pathname + url.search + url.hash);
     }

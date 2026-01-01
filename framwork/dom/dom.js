@@ -24,13 +24,29 @@ function setAttributes(el, attributes = {}) {
     for (const [key, value] of Object.entries(attributes)) {
         if (key.startsWith("on") && typeof value === "function") {
             const eventName = key.toLowerCase().substring(2);
-            // el.addEventListener(eventName, value)e
-            eventManager.linkNodeToHandlers(el, eventName, value)
+            eventManager.linkNodeToHandlers(el, eventName, value);
         } else if (typeof value === "function") {
-            // reactive attribute
-            createEffect(() => el.setAttribute(key, value()));
+            // Reactive attribute
+            createEffect(() => {
+                const result = value();
+                // Handle boolean attributes explicitly
+                if (typeof el[key] === "boolean") {
+                    el[key] = !!result;
+                } else if (result === null || result === undefined) {
+                    el.removeAttribute(key);
+                } else {
+                    el.setAttribute(key, result);
+                }
+            });
         } else {
-            el.setAttribute(key, value);
+            // Static attribute
+            if (typeof el[key] === "boolean") {
+                el[key] = !!value;
+            } else if (value === null || value === undefined) {
+                el.removeAttribute(key);
+            } else {
+                el.setAttribute(key, value);
+            }
         }
     }
 }
