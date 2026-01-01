@@ -19,43 +19,39 @@ export function dom(node) {
     return el;
 }
 
-// Validate attribute name before setting it
-function isValidAttributeName(name) {
-    return /^[a-zA-Z_][\w\-:.]*$/.test(name);
-}
-
 // Handles attributes, including reactive ones
 function setAttributes(el, attributes = {}) {
     for (const [key, value] of Object.entries(attributes)) {
-        if (!isValidAttributeName(key)) {
+        const trimmedKey = key.trim();
+        if (trimmedKey === "") { // Skip empty trimmed keys
             console.warn(`Invalid attribute name: ${key}`);
             continue;
         }
 
-        if (key.startsWith("on") && typeof value === "function") {
-            const eventName = key.toLowerCase().substring(2);
+        if (trimmedKey.startsWith("on") && typeof value === "function") {
+            const eventName = trimmedKey.toLowerCase().substring(2);
             eventManager.linkNodeToHandlers(el, eventName, value);
         } else if (typeof value === "function") {
             // Reactive attribute
             createEffect(() => {
                 const result = value();
                 // Handle boolean attributes explicitly
-                if (typeof el[key] === "boolean") {
-                    el[key] = !!result;
+                if (typeof el[trimmedKey] === "boolean") {
+                    el[trimmedKey] = !!result;
                 } else if (result === null || result === undefined) {
-                    el.removeAttribute(key);
+                    el.removeAttribute(trimmedKey);
                 } else {
-                    el.setAttribute(key, result);
+                    el.setAttribute(trimmedKey, result);
                 }
             });
         } else {
             // Static attribute
-            if (typeof el[key] === "boolean") {
-                el[key] = !!value;
+            if (typeof el[trimmedKey] === "boolean") {
+                el[trimmedKey] = !!value;
             } else if (value === null || value === undefined) {
-                el.removeAttribute(key);
+                el.removeAttribute(trimmedKey);
             } else {
-                el.setAttribute(key, value);
+                el.setAttribute(trimmedKey, value);
             }
         }
     }

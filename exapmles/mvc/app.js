@@ -88,10 +88,14 @@ function removeTodo(id) {
   setTodos(todos().filter(todo => todo.id !== id));
 }
 
+// Update the `toggleTodo` function to use signals for marking todos as completed
 function toggleTodo(id) {
-  setTodos(todos().map(todo => 
-    todo.id === id ? { ...todo, completed: !todo.completed } : todo
-  ));
+  setTodos(todos().map(todo => {
+    if (todo.id === id) {
+      return { ...todo, completed: !todo.completed };
+    }
+    return todo;
+  }));
 }
 
 function editTodo(id, newText) {
@@ -426,7 +430,6 @@ const App = dom({
   ]
 });
 
-// Build the input container
 inputContainer.appendChild(todoInput);
 inputContainer.appendChild(todoInputLabel);
 
