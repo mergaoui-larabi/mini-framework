@@ -13,23 +13,33 @@ const [filter, setFilter] = createSignal('all');
 const filteredTodos = createMemo(() => {
   const currentFilter = filter();
   return todos().filter(todo => {
-    if (currentFilter === 'active') return !todo.completed;
-    if (currentFilter === 'completed') return todo.completed;
+    const isCompleted = typeof todo.completed === 'function' ? todo.completed() : todo.completed;
+    if (currentFilter === 'active') return !isCompleted;
+    if (currentFilter === 'completed') return isCompleted;
     return true;
   });
 });
 
 // Use createMemo for counts
 const activeCount = createMemo(() => 
-  todos().filter(t => !t.completed).length
+  todos().filter(t => {
+    const isCompleted = typeof t.completed === 'function' ? t.completed() : t.completed;
+    return !isCompleted;
+  }).length
 );
 
 const completedCount = createMemo(() => 
-  todos().filter(t => t.completed).length
+  todos().filter(t => {
+    const isCompleted = typeof t.completed === 'function' ? t.completed() : t.completed;
+    return isCompleted;
+  }).length
 );
 
 const allCompleted = createMemo(() => 
-  todos().length > 0 && todos().every(t => t.completed)
+  todos().length > 0 && todos().every(t => {
+    const isCompleted = typeof t.completed === 'function' ? t.completed() : t.completed;
+    return isCompleted;
+  })
 );
 
 const hash = useHash();
@@ -76,9 +86,17 @@ const todoInputLabel = dom({
 function addTodo() {
   const inputValue = todoInput.value.trim();
   if (inputValue) {
+    // Create signal for completed state
+    const [completed, setCompleted] = createSignal(false);
+    
     // Use batch for multiple updates
     batch(() => {
-      setTodos([...todos(), { text: inputValue, completed: fm.createSignal(false), id: Date.now() }]);
+      setTodos([...todos(), { 
+        text: inputValue, 
+        completed, 
+        setCompleted,
+        id: Date.now() 
+      }]);
       todoInput.value = '';
     });
   }
@@ -88,16 +106,11 @@ function removeTodo(id) {
   setTodos(todos().filter(todo => todo.id !== id));
 }
 
-// Update the `toggleTodo` function to use signals for marking todos as completed
 function toggleTodo(id) {
-  setTodos(todos().map(todo => {
-    if (todo.id === id) {
-      const [completed, setCompleted] = todo.completed;
-      setCompleted(!completed());
-      return { ...todo, completed: [completed, setCompleted] };
-    }
-    return todo;
-  }));
+  const todo = todos().find(t => t.id === id);
+  if (todo && todo.setCompleted) {
+    todo.setCompleted(!todo.completed());
+  }
 }
 
 function editTodo(id, newText) {
@@ -109,16 +122,26 @@ function editTodo(id, newText) {
     setEditingId(null);
   } else {
     removeTodo(id);
+    // Update counts reactively after deletion
+    activeCount();
+    completedCount();
   }
 }
 
 function clearCompleted() {
-  setTodos(todos().filter(todo => !todo.completed));
+  setTodos(todos().filter(todo => {
+    const isCompleted = typeof todo.completed === 'function' ? todo.completed() : todo.completed;
+    return !isCompleted;
+  }));
 }
 
 function toggleAll() {
   const shouldComplete = !allCompleted();
-  setTodos(todos().map(todo => ({ ...todo, completed: shouldComplete })));
+  todos().forEach(todo => {
+    if (todo.setCompleted) {
+      todo.setCompleted(shouldComplete);
+    }
+  });
 }
 
 // Create a static ul element
@@ -178,12 +201,14 @@ createEffect(() => {
 });
 
 function createTodoElement(todo) {
-  const [completed, setCompleted] = todo.completed;
-
   const li = dom({
     tag: "li",
     attributes: { 
-      class: completed() ? "completed" : "",
+      class: () => {
+        const isEditing = editingId() === todo.id;
+        const isCompleted = typeof todo.completed === 'function' ? todo.completed() : todo.completed;
+        return isEditing ? "editing" : (isCompleted ? "completed" : "");
+      },
       "data-testid": "todo-item"
     },
     children: [
@@ -197,8 +222,8 @@ function createTodoElement(todo) {
               class: "toggle",
               type: "checkbox",
               "data-testid": "todo-item-toggle",
-              ...(completed() ? { checked: "checked" } : {}),
-              onchange: () => setCompleted(!completed())
+              checked: () => typeof todo.completed === 'function' ? todo.completed() : todo.completed,
+              onchange: () => toggleTodo(todo.id)
             }
           },
           {
@@ -221,13 +246,34 @@ function createTodoElement(todo) {
       }
     ]
   });
-
+  
   // Watch for editing state changes
   createEffect(() => {
     const isEditing = editingId() === todo.id;
-    li.className = isEditing ? "editing" : (completed() ? "completed" : "");
     if (isEditing) {
       li.setAttribute("data-testid", "todo-item");
+    }
+    
+    // Handle edit input
+    let editInput = li.querySelector('.edit');
+    if (isEditing && !editInput) {
+      const currentTodo = todos().find(t => t.id === todo.id) || todo;
+      editInput = dom({
+        tag: "input",
+        attributes: {
+          class: "edit",
+          value: currentTodo.text,
+          onblur: (e) => editTodo(todo.id, e.target.value),
+          onkeypress: (e) => {
+            if (e.nativeEvent.key === 'Enter') editTodo(todo.id, e.target.value);
+            if (e.nativeEvent.key === 'Escape') setEditingId(null);
+          }
+        }
+      });
+      li.appendChild(editInput);
+      editInput.focus();
+    } else if (!isEditing && editInput) {
+      editInput.remove();
     }
   });
 
@@ -235,15 +281,9 @@ function createTodoElement(todo) {
 }
 
 function updateTodoElement(liElement, todo) {
-  const isEditing = editingId() === todo.id;
-  liElement.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
+  // Class is now reactive, so we don't need to manually update it
   
-  const checkbox = liElement.querySelector('.toggle');
   const label = liElement.querySelector('label');
-  
-  if (checkbox) {
-    checkbox.checked = todo.completed;
-  }
   
   if (label) {
     label.textContent = todo.text;
@@ -412,6 +452,7 @@ const App = dom({
   ]
 });
 
+// Build the input container
 inputContainer.appendChild(todoInput);
 inputContainer.appendChild(todoInputLabel);
 
