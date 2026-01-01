@@ -1,51 +1,22 @@
 import * as fm from "../../framwork/index.js";
 
-const { dom, createSignal, createEffect, createMemo, batch, useHash, useNavigate, Router } = fm;
-
-// Initialize Router
-Router.instance.initRouter();
+const { dom, createSignal, createEffect } = fm;
 
 const [todos, setTodos] = createSignal([]);
 const [editingId, setEditingId] = createSignal(null);
 const [filter, setFilter] = createSignal('all');
 
-// Use createMemo for filtered todos
-const filteredTodos = createMemo(() => {
-  const currentFilter = filter();
-  return todos().filter(todo => {
-    if (currentFilter === 'active') return !todo.completed;
-    if (currentFilter === 'completed') return todo.completed;
-    return true;
-  });
-});
+// Handle hash changes for filters
+function handleHashChange() {
+  const hash = window.location.hash;
+  if (hash === '#/active') setFilter('active');
+  else if (hash === '#/completed') setFilter('completed');
+  else setFilter('all');
+}
 
-// Use createMemo for counts
-const activeCount = createMemo(() =>
-  todos().filter(t => !t.completed).length
-);
-
-const completedCount = createMemo(() =>
-  todos().filter(t => t.completed).length
-);
-
-const allCompleted = createMemo(() =>
-  todos().length > 0 && todos().every(t => t.completed)
-);
-
-const hash = useHash();
-const navigate = useNavigate();
-
-// Sync filter with hash
-createEffect(() => {
-  const currentHash = hash();
-  if (currentHash === '#/active') {
-    setFilter('active');
-  } else if (currentHash === '#/completed') {
-    setFilter('completed');
-  } else {
-    setFilter('all');
-  }
-});
+// Listen for hash changes
+window.addEventListener('hashchange', handleHashChange);
+handleHashChange(); // Set initial filter based on current hash 
 
 const todoInput = dom({
   tag: "input",
@@ -53,10 +24,11 @@ const todoInput = dom({
     class: "new-todo",
     id: "todo-input",
     type: "text",
+    "data-testid": "text-input",
     placeholder: "What needs to be done?",
     autofocus: true,
     onkeypress: (e) => {
-      if (e.nativeEvent.code === 'Enter') {
+      if (e.nativeEvent.key === 'Enter') {
         addTodo();
       }
     }
@@ -72,45 +44,33 @@ const todoInputLabel = dom({
   children: ["New Todo Input"]
 });
 
-let todoIdCounter = 0;
-
 function addTodo() {
   const inputValue = todoInput.value.trim();
   if (inputValue) {
-    setTodos([...todos(), { text: inputValue, completed: false, id: ++todoIdCounter }]);
-    todoInput.value = '';
+    setTodos([...todos(), { text: inputValue, completed: false, id: Date.now() }]);
+    todoInput.value = ''; 
   }
 }
 
 function removeTodo(id) {
   setTodos(todos().filter(todo => todo.id !== id));
-  setEditingId(null);
 }
 
-// Update the `toggleTodo` function to use signals for marking todos as completed
-function toggleTodo(id, value) {
-  console.log(id, value)
-  setTodos(todos().map(todo => {
-    if (todo.id === id) {
-      return { ...todo, completed: value };
-    }
-    return todo;
-  }));
+function toggleTodo(id) {
+  setTodos(todos().map(todo => 
+    todo.id === id ? { ...todo, completed: !todo.completed } : todo
+  ));
 }
 
 function editTodo(id, newText) {
-  console.log('Editing todo ID:', id, 'with text:', newText);
   const t = newText.trim();
-
   if (t) {
-    setTodos(todos().map(todo =>
-      todo.id === id ? { ...todo, text: t } : todo
+    setTodos(todos().map(todo => 
+      todo.id === id ? { ...todo, text: newText } : todo
     ));
     setEditingId(null);
   } else {
-    console.log('Removing todo with ID:', id);
-    setTodos(todos().filter(todo => todo.id !== id));
-    setEditingId(null);
+    removeTodo(id);
   }
 }
 
@@ -119,112 +79,169 @@ function clearCompleted() {
 }
 
 function toggleAll() {
-  const shouldComplete = !allCompleted();
-  setTodos(todos().map(todo => ({ ...todo, completed: shouldComplete })));
+  const allCompleted = todos().every(todo => todo.completed);
+  setTodos(todos().map(todo => ({ ...todo, completed: !allCompleted })));
 }
 
-// Create a static ul element with reactive children
+// Create a static ul element
 const todosContainer = dom({
   tag: "ul",
-  attributes: {
+  attributes: { 
     class: "todo-list",
+    "data-testid": "todo-list"
   },
-  children: () => filteredTodos().map(todo => {
-    const todoId = todo.id; // Capture the ID at creation time
-    return {
-      tag: "li",
-      attributes: {
-        id: `todo-${todoId}`,
-        class: () => {
-          const isEditing = editingId() === todoId;
-          const currentTodo = todos().find(t => t.id === todoId) || todo;
-          return isEditing ? "editing" : (currentTodo.completed ? "completed" : "");
-        }
-      },
-      children: [
-        {
-          tag: "div",
-          attributes: { class: "view" },
-          children: [
-            {
-              tag: "input",
-              attributes: {
-                class: "toggle",
-                type: "checkbox",
-                checked: () => {
-                  const currentTodo = todos().find(t => t.id === todoId) || todo;
-                  return currentTodo.completed;
-                },
-                onchange: (e) => toggleTodo(todoId, e.nativeEvent.target.checked)
-              }
-            },
-            {
-              tag: "label",
-              attributes: {
-                ondblclick: () => {
-                  console.log('Double-clicking todo ID:', todoId);
-                  setEditingId(todoId);
-                  setTimeout(() => {
-                    const input = document.querySelector(`#todo-${todoId} .edit`);
-                    if (input) {
-                      const currentTodo = todos().find(t => t.id === todoId) || todo;
-                      input.value = currentTodo.text;
-                      input.focus();
-                    }
-                  }, 0);
-                }
-              },
-              children: [() => {
-                const currentTodo = todos().find(t => t.id === todoId) || todo;
-                return currentTodo.text;
-              }]
-            },
-            {
-              tag: "button",
-              attributes: {
-                class: "destroy",
-                onclick: () => removeTodo(todoId)
-              }
-            }
-          ]
-        },
-        {
-          tag: "input",
-          attributes: {
-            class: "edit",
-            style: () => editingId() === todoId ? '' : 'display: none',
-            onblur: (e) => {
-              const currentEditingId = editingId();
-              if (currentEditingId) {
-                editTodo(currentEditingId, e.target.value);
-              }
-            },
-            onkeypress: (e) => {
-              const currentEditingId = editingId();
-              if (currentEditingId) {
-                if (e.nativeEvent.key === 'Enter' && e.nativeEvent.target.value.trim() !== '') {
-                  editTodo(currentEditingId, e.target.value);
-                }
-                if (e.nativeEvent.key === 'Escape') setEditingId(null);
-              }
-            }
-          }
-        }
-      ]
-    };
-  })
+  children: []
 });
 
-// Use reactive children function for counter display
+// Manually handle list updates efficiently
+const todoElements = new Map();
+
+createEffect(() => {
+  const filteredTodos = todos().filter(todo => {
+    if (filter() === 'active') return !todo.completed;
+    if (filter() === 'completed') return todo.completed;
+    return true;
+  });
+
+  // Track which todos should exist
+  const currentIds = new Set(filteredTodos.map(t => t.id));
+  
+  // Remove elements that shouldn't exist anymore
+  todoElements.forEach((element, id) => {
+    if (!currentIds.has(id)) {
+      element.remove();
+      todoElements.delete(id);
+    }
+  });
+
+  // Add or update elements
+  filteredTodos.forEach((todo, index) => {
+    let liElement = todoElements.get(todo.id);
+    
+    if (!liElement) {
+      // Create new element
+      liElement = createTodoElement(todo);
+      todoElements.set(todo.id, liElement);
+      todosContainer.appendChild(liElement);
+    } else {
+      // Update existing element
+      updateTodoElement(liElement, todo);
+    }
+  });
+
+  // Reorder elements to match filtered order
+  filteredTodos.forEach((todo, index) => {
+    const element = todoElements.get(todo.id);
+    const currentIndex = Array.from(todosContainer.children).indexOf(element);
+    if (currentIndex !== index) {
+      if (index >= todosContainer.children.length) {
+        todosContainer.appendChild(element);
+      } else {
+        todosContainer.insertBefore(element, todosContainer.children[index]);
+      }
+    }
+  });
+});
+
+function createTodoElement(todo) {
+  const li = dom({
+    tag: "li",
+    attributes: { 
+      class: todo.completed ? "completed" : "",
+      "data-testid": "todo-item"
+    },
+    children: [
+      {
+        tag: "div",
+        attributes: { class: "view" },
+        children: [
+          {
+            tag: "input",
+            attributes: {
+              class: "toggle",
+              type: "checkbox",
+              "data-testid": "todo-item-toggle",
+              ...(todo.completed ? { checked: "checked" } : {}),
+              onchange: () => toggleTodo(todo.id)
+            }
+          },
+          {
+            tag: "label",
+            attributes: {
+              "data-testid": "todo-item-label",
+              ondblclick: () => setEditingId(todo.id)
+            },
+            children: [todo.text]
+          },
+          {
+            tag: "button",
+            attributes: {
+              class: "destroy",
+              "data-testid": "todo-item-button",
+              onclick: () => removeTodo(todo.id)
+            }
+          }
+        ]
+      }
+    ]
+  });
+
+  // Watch for editing state changes
+  createEffect(() => {
+    const currentTodo = todos().find(t => t.id === todo.id);
+    if (!currentTodo) return;
+    
+    const isEditing = editingId() === todo.id;
+    li.className = isEditing ? "editing" : (currentTodo.completed ? "completed" : "");
+    if (isEditing) {
+      li.setAttribute("data-testid", "todo-item");
+    }
+    
+    // Handle edit input
+    let editInput = li.querySelector('.edit');
+    if (isEditing && !editInput) {
+      editInput = dom({
+        tag: "input",
+        attributes: {
+          class: "edit",
+          value: currentTodo.text,
+          onblur: (e) => editTodo(todo.id, e.target.value),
+          onkeypress: (e) => {
+            if (e.nativeEvent.key === 'Enter') editTodo(todo.id, e.nativeEvent.target.value);
+            if (e.nativeEvent.key === 'Escape') setEditingId(null);
+          }
+        }
+      });
+      li.appendChild(editInput);
+      editInput.focus();
+    } else if (!isEditing && editInput) {
+      editInput.remove();
+    }
+  });
+
+  return li;
+}
+
+function updateTodoElement(liElement, todo) {
+  const isEditing = editingId() === todo.id;
+  liElement.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
+  
+  const checkbox = liElement.querySelector('.toggle');
+  const label = liElement.querySelector('label');
+  
+  if (checkbox) {
+    checkbox.checked = todo.completed;
+  }
+  
+  if (label) {
+    label.textContent = todo.text;
+  }
+}
+
 const counterDisplay = dom({
   tag: "span",
   attributes: { class: "todo-count" },
-  children: [
-    () => {
-      const count = activeCount();
-      return `${count} ${count === 1 ? 'item' : 'items'} left`;
-    }
-  ]
+  children: []
 });
 
 const toggleAllCheckbox = dom({
@@ -233,18 +250,14 @@ const toggleAllCheckbox = dom({
     id: "toggle-all",
     class: "toggle-all",
     type: "checkbox",
+    "data-testid": "toggle-all",
     onchange: toggleAll
   }
 });
 
-// Update checkbox reactively
-createEffect(() => {
-  toggleAllCheckbox.checked = allCompleted();
-});
-
 const toggleAllLabel = dom({
   tag: "label",
-  attributes: {
+  attributes: { 
     class: "toggle-all-label",
     for: "toggle-all"
   },
@@ -260,18 +273,18 @@ const toggleAllLabel = dom({
   ]
 });
 
-// Use reactive class attribute
 const filtersContainer = dom({
   tag: "ul",
-  attributes: {
+  attributes: { 
     class: "filters",
+    "data-testid": "footer-navigation"
   },
   children: [
     {
       tag: "li",
       children: [{
         tag: "a",
-        attributes: {
+        attributes: { 
           class: () => filter() === 'all' ? 'selected' : '',
           href: "#/"
         },
@@ -282,7 +295,7 @@ const filtersContainer = dom({
       tag: "li",
       children: [{
         tag: "a",
-        attributes: {
+        attributes: { 
           class: () => filter() === 'active' ? 'selected' : '',
           href: "#/active"
         },
@@ -293,7 +306,7 @@ const filtersContainer = dom({
       tag: "li",
       children: [{
         tag: "a",
-        attributes: {
+        attributes: { 
           class: () => filter() === 'completed' ? 'selected' : '',
           href: "#/completed"
         },
@@ -307,19 +320,10 @@ const clearCompletedButton = dom({
   tag: "button",
   attributes: {
     class: "clear-completed",
+    disabled: true,
     onclick: clearCompleted
   },
   children: ["Clear completed"]
-});
-
-// Update button disabled state reactively
-createEffect(() => {
-  const hasCompleted = completedCount() > 0;
-  if (hasCompleted) {
-    clearCompletedButton.removeAttribute('disabled');
-  } else {
-    clearCompletedButton.setAttribute('disabled', 'true');
-  }
 });
 
 const inputContainer = dom({
@@ -330,20 +334,42 @@ const inputContainer = dom({
 
 const mainSection = dom({
   tag: "main",
-  attributes: {
+  attributes: { 
     class: "main",
+    "data-testid": "main"
   },
   children: []
 });
 
 const footerSection = dom({
   tag: "footer",
-  attributes: {
+  attributes: { 
     class: "footer",
+    "data-testid": "footer"
+  },
+  
+});
+
+createEffect(() => {
+  const count = todos().filter(todo => !todo.completed).length;
+  counterDisplay.innerHTML = `<strong>${count}</strong> ${count === 1 ? 'item' : 'items'} left`;
+});
+
+createEffect(() => {
+  const allCompleted = todos().length > 0 && todos().every(todo => todo.completed);
+  toggleAllCheckbox.checked = allCompleted;
+});
+
+// Update clear completed button state
+createEffect(() => {
+  const hasCompleted = todos().some(todo => todo.completed);
+  if (hasCompleted) {
+    clearCompletedButton.removeAttribute('disabled');
+  } else {
+    clearCompletedButton.setAttribute('disabled', 'true');
   }
 });
 
-// Hide/show sections reactively
 createEffect(() => {
   const hasTodos = todos().length > 0;
   mainSection.style.display = hasTodos ? '' : 'none';
@@ -352,15 +378,16 @@ createEffect(() => {
 
 const App = dom({
   tag: "section",
-  attributes: {
+  attributes: { 
     class: "todoapp",
     id: "root"
   },
   children: [
     {
       tag: "header",
-      attributes: {
+      attributes: { 
         class: "header",
+        "data-testid": "header"
       },
       children: [
         {
@@ -372,6 +399,7 @@ const App = dom({
   ]
 });
 
+// Build the input container
 inputContainer.appendChild(todoInput);
 inputContainer.appendChild(todoInputLabel);
 
