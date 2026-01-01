@@ -72,19 +72,19 @@ const todoInputLabel = dom({
   children: ["New Todo Input"]
 });
 
+let todoIdCounter = 0;
+
 function addTodo() {
   const inputValue = todoInput.value.trim();
   if (inputValue) {
-    // Use batch for multiple updates
-    batch(() => {
-      setTodos([...todos(), { text: inputValue, completed: false, id: Date.now() }]);
-      todoInput.value = '';
-    });
+    setTodos([...todos(), { text: inputValue, completed: false, id: ++todoIdCounter }]);
+    todoInput.value = '';
   }
 }
 
 function removeTodo(id) {
   setTodos(todos().filter(todo => todo.id !== id));
+  setEditingId(null);
 }
 
 // Update the `toggleTodo` function to use signals for marking todos as completed
@@ -99,16 +99,18 @@ function toggleTodo(id, value) {
 }
 
 function editTodo(id, newText) {
+  console.log('Editing todo ID:', id, 'with text:', newText);
   const t = newText.trim();
+
   if (t) {
     setTodos(todos().map(todo =>
       todo.id === id ? { ...todo, text: t } : todo
     ));
     setEditingId(null);
   } else {
-    removeTodo(id);
-    activeCount();
-    completedCount();
+    console.log('Removing todo with ID:', id);
+    setTodos(todos().filter(todo => todo.id !== id));
+    setEditingId(null);
   }
 }
 
@@ -121,149 +123,97 @@ function toggleAll() {
   setTodos(todos().map(todo => ({ ...todo, completed: shouldComplete })));
 }
 
-// Create a static ul element
+// Create a static ul element with reactive children
 const todosContainer = dom({
   tag: "ul",
   attributes: {
     class: "todo-list",
   },
-  children: []
-});
-
-// Manually handle list updates efficiently
-const todoElements = new Map();
-
-createEffect(() => {
-  const filtered = filteredTodos();
-
-  // Track which todos should exist
-  const currentIds = new Set(filtered.map(t => t.id));
-
-  // Remove elements that shouldn't exist anymore
-  todoElements.forEach((element, id) => {
-    if (!currentIds.has(id)) {
-      element.remove();
-      todoElements.delete(id);
-    }
-  });
-
-  // Add or update elements
-  filtered.forEach((todo, index) => {
-    let liElement = todoElements.get(todo.id);
-
-    if (!liElement) {
-      // Create new element
-      liElement = createTodoElement(todo);
-      todoElements.set(todo.id, liElement);
-      todosContainer.appendChild(liElement);
-    }
-
-    // Always update to ensure completed state is reflected
-    updateTodoElement(liElement, todo);
-  });
-
-  // Reorder elements to match filtered order
-  filtered.forEach((todo, index) => {
-    const element = todoElements.get(todo.id);
-    const currentIndex = Array.from(todosContainer.children).indexOf(element);
-    if (currentIndex !== index) {
-      if (index >= todosContainer.children.length) {
-        todosContainer.appendChild(element);
-      } else {
-        todosContainer.insertBefore(element, todosContainer.children[index]);
-      }
-    }
-  });
-});
-
-function createTodoElement(todo) {
-  const li = dom({
-    tag: "li",
-    attributes: {
-      class: todo.completed ? "completed" : "",
-    },
-    children: [
-      {
-        tag: "div",
-        attributes: { class: "view" },
-        children: [
-          {
-            tag: "input",
-            attributes: {
-              class: "toggle",
-              type: "checkbox",
-              ...(todo.completed ? { checked: "checked" } : {}),
-              onchange: (e) => toggleTodo(todo.id, e.nativeEvent.target.checked)
-            }
-          },
-          {
-            tag: "label",
-            attributes: {
-              ondblclick: () => setEditingId(todo.id)
+  children: () => filteredTodos().map(todo => {
+    const todoId = todo.id; // Capture the ID at creation time
+    return {
+      tag: "li",
+      attributes: {
+        id: `todo-${todoId}`,
+        class: () => {
+          const isEditing = editingId() === todoId;
+          const currentTodo = todos().find(t => t.id === todoId) || todo;
+          return isEditing ? "editing" : (currentTodo.completed ? "completed" : "");
+        }
+      },
+      children: [
+        {
+          tag: "div",
+          attributes: { class: "view" },
+          children: [
+            {
+              tag: "input",
+              attributes: {
+                class: "toggle",
+                type: "checkbox",
+                checked: () => {
+                  const currentTodo = todos().find(t => t.id === todoId) || todo;
+                  return currentTodo.completed;
+                },
+                onchange: (e) => toggleTodo(todoId, e.nativeEvent.target.checked)
+              }
             },
-            children: [todo.text]
-          },
-          {
-            tag: "button",
-            attributes: {
-              class: "destroy",
-              onclick: () => removeTodo(todo.id)
+            {
+              tag: "label",
+              attributes: {
+                ondblclick: () => {
+                  console.log('Double-clicking todo ID:', todoId);
+                  setEditingId(todoId);
+                  setTimeout(() => {
+                    const input = document.querySelector(`#todo-${todoId} .edit`);
+                    if (input) {
+                      const currentTodo = todos().find(t => t.id === todoId) || todo;
+                      input.value = currentTodo.text;
+                      input.focus();
+                    }
+                  }, 0);
+                }
+              },
+              children: [() => {
+                const currentTodo = todos().find(t => t.id === todoId) || todo;
+                return currentTodo.text;
+              }]
+            },
+            {
+              tag: "button",
+              attributes: {
+                class: "destroy",
+                onclick: () => removeTodo(todoId)
+              }
             }
-          }
-        ]
-      }
-    ]
-  });
-
-  // Watch for editing state changes
-  createEffect(() => {
-    const isEditing = editingId() === todo.id;
-    li.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
-    if (isEditing) {
-      li.setAttribute("data-testid", "todo-item");
-    }
-
-    // Handle edit input
-    let editInput = li.querySelector('.edit');
-    if (isEditing && !editInput) {
-      const currentTodo = todos().find(t => t.id === todo.id) || todo;
-      editInput = dom({
-        tag: "input",
-        attributes: {
-          class: "edit",
-          value: currentTodo.text,
-          onblur: (e) => editTodo(todo.id, e.target.value),
-          onkeypress: (e) => {
-            if (e.nativeEvent.key === 'Enter') editTodo(todo.id, e.target.value);
-            if (e.nativeEvent.key === 'Escape') setEditingId(null);
+          ]
+        },
+        {
+          tag: "input",
+          attributes: {
+            class: "edit",
+            style: () => editingId() === todoId ? '' : 'display: none',
+            onblur: (e) => {
+              const currentEditingId = editingId();
+              if (currentEditingId) {
+                editTodo(currentEditingId, e.target.value);
+              }
+            },
+            onkeypress: (e) => {
+              const currentEditingId = editingId();
+              if (currentEditingId) {
+                if (e.nativeEvent.key === 'Enter' && e.nativeEvent.target.value.trim() !== '') {
+                  editTodo(currentEditingId, e.target.value);
+                }
+                if (e.nativeEvent.key === 'Escape') setEditingId(null);
+              }
+            }
           }
         }
-      });
-      li.appendChild(editInput);
-      editInput.focus();
-    } else if (!isEditing && editInput) {
-      editInput.remove();
-    }
-  });
-
-  return li;
-}
-
-function updateTodoElement(liElement, todo) {
-  const isEditing = editingId() === todo.id;
-  liElement.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
-
-  const checkbox = liElement.querySelector('.toggle');
-  const label = liElement.querySelector('label');
-
-  if (checkbox) {
-    checkbox.checked = todo.completed;
-  }
-
-  if (label) {
-    label.textContent = todo.text;
-  }
-}
+      ]
+    };
+  })
+});
 
 // Use reactive children function for counter display
 const counterDisplay = dom({

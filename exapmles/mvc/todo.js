@@ -90,7 +90,7 @@ function main() {
                 type: 'checkbox',
                 id: 'toggle-all-input',
                 class: 'toggle-all',
-                'on:change': handleToggleAll,
+                onchange: handleToggleAll,
                 checked: () => {
                     const list = todos()
                     if (list.length === 0) return false
@@ -121,7 +121,7 @@ function header() {
         dom(tag: 'input', {
             class: "new-todo",
             placeholder: "What needs to be done?",
-            'on:keydown': (e) => {
+            onkeydown: (e) => {
                 if (e.key !== 'Enter') return
 
                 const value = e.target.value.trim()
@@ -165,13 +165,13 @@ function task(todo) {
             dom(tag: 'input', {
                 type: 'checkbox',
                 class: 'toggle',
-                'on:change': toggleStatus,
+                onchange: toggleStatus,
                 checked: () => completed()  // ← Use local signal
             }),
             dom(tag: 'label', {}, todo.title),
             dom(tag: 'button', {
                 class: 'destroy',
-                'on:click': deleteTask
+                onclick: deleteTask
             })
         ),
         dom(tag: 'div', { class: 'input-container' },
