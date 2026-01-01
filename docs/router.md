@@ -1,395 +1,371 @@
-# Router Module
-# Router Documentation
+# Reactive Router
 
-A client-side router for building single-page applications. Handles navigation, view management, and context sharing between components.
+**Ultra-simple reactive URL state management. No views, no rendering - just reactive signals.**
 
-## Getting Started
+## Philosophy
+
+This router does ONE thing: **manage URL state reactively**.
+
+- **No views** - Your components handle their own rendering
+- **No routing logic** - Use reactive signals to show/hide components
+- **No middleware** - Handle logic in your components
+- **Just reactive URL state** - pathname, search params, hash as signals
+
+## What It Does
+
+The router exposes three reactive signals:
+
+- `pathname` - Current URL pathname
+- `searchParams` - URLSearchParams object
+- `hash` - URL hash fragment
+
+When the URL changes (link click, back/forward, programmatic navigation), these signals automatically update and trigger effects.
+
+## API
+
+### Initialize
 
 ```javascript
-import { Router } from './router/router.js';
+import { Router } from './framwork/router/router.js'
 
-const router = Router.instance;
-
-// Initialize the router
-router.initRouter();
+Router.instance.initRouter();
 ```
 
-The Router is a singleton, so you always get the same instance.
-
----
-
-## Setup
-
-### initRouter()
-
-Initialize the router to handle navigation. Call this once when your app starts.
+### Navigate
 
 ```javascript
-router.initRouter();
+Router.instance.navigate('/about');
+Router.instance.navigate('/login', true); // Replace history
 ```
 
-This sets up:
-- Click handlers for intercepting link clicks
-- Browser back/forward button support
-- Initial route on page load
-
----
-
-## Defining Routes
-
-### addViewRoute(route, ViewClass, destroy)
-
-Register a route with a view class.
+### Reactive Hooks
 
 ```javascript
-class HomePage {
-  render(data) {
-    document.getElementById('app').innerHTML = '<h1>Home</h1>';
-  }
-  destroy() {
-    // Cleanup code
-  }
-}
+import { usePathname, useSearchParams, useHash, useSearchParam, useNavigate } from './framwork/index.js'
 
-router.addViewRoute('/home', HomePage, true);
+const pathname = usePathname();           // Get pathname reactively
+const searchParams = useSearchParams();   // Get search params reactively
+const hash = useHash();                   // Get hash reactively
+const userId = useSearchParam('userId');  // Get specific param reactively
+const navigate = useNavigate();           // Get navigate function
 ```
 
-**Parameters:**
-- `route` (String): URL path like '/home' or '/about'
-- `ViewClass` (Class): View class to instantiate
-- `destroy` (Boolean): If false, view is cached and reused. Default: true
+## Usage Examples
 
-**View Requirements:**
-Your view class must have:
-- `render(data)` method - called when route is activated
-- `destroy()` method - called when leaving route
-
-### addEventRoute(path, event)
-
-Register a route that emits an event instead of rendering a view.
+### Example 1: Hash-Based Filtering (TodoMVC)
 
 ```javascript
-router.addEventRoute('/logout', 'userLogout');
+import { createMemo, useHash } from './framwork/index.js'
 
-eventEmitter.on('userLogout', () => {
-  clearUserData();
-  router.redirect('/login');
+// Initialize router
+Router.instance.initRouter();
+
+// Get reactive hash
+const hash = useHash();
+
+// Derive filter from hash
+const filter = createMemo(() => {
+    const currentHash = hash();
+    if (currentHash === '#/active') return 'active';
+    if (currentHash === '#/completed') return 'completed';
+    return 'all';
+});
+
+// Filter todos based on current filter
+const filteredTodos = createMemo(() => {
+    const currentFilter = filter();
+    return todos().filter(todo => {
+        if (currentFilter === 'active') return !todo.completed;
+        if (currentFilter === 'completed') return todo.completed;
+        return true;
+    });
+});
+
+// Create filter links
+const filters = dom({
+    tag: "ul",
+    children: [
+        {
+            tag: "li",
+            children: [{
+                tag: "a",
+                attributes: {
+                    href: "#/",
+                    class: () => filter() === 'all' ? 'selected' : ''
+                },
+                children: ["All"]
+            }]
+        },
+        {
+            tag: "li",
+            children: [{
+                tag: "a",
+                attributes: {
+                    href: "#/active",
+                    class: () => filter() === 'active' ? 'selected' : ''
+                },
+                children: ["Active"]
+            }]
+        }
+    ]
 });
 ```
 
-**Parameters:**
-- `path` (String): URL path
-- `event` (String): Event name to emit
-
----
-
-## Navigation
-
-### redirect(route, data)
-
-Navigate to a route programmatically.
+### Example 2: Reactive Navigation Menu
 
 ```javascript
-router.redirect('/dashboard');
-router.redirect('/profile', { userId: 123 });
-```
+import { dom, usePathname, createEffect } from './framwork/index.js'
 
-**Parameters:**
-- `route` (String): Target route path
-- `data` (Any): Optional data passed to view's render method
+const pathname = usePathname();
 
-### Link Interception
+const nav = dom({
+    tag: "nav",
+    children: [
+        {
+            tag: "a",
+            attributes: {
+                href: "/",
+                class: () => pathname() === '/' ? 'active' : ''
+            },
+            children: ["Home"]
+        },
+        {
+            tag: "a",
+            attributes: {
+                href: "/about",
+                class: () => pathname() === '/about' ? 'active' : ''
+            },
+            children: ["About"]
+        }
+    ]
+});
 
-The router automatically intercepts clicks on `<a>` tags and handles them as client-side navigation.
+// Show different content based on pathname
+const content = dom({ tag: "div", children: [] });
 
-```javascript
-// This will be handled by the router
-dom({
-  tag: 'a',
-  attributes: { href: '/about' },
-  children: ['About']
+createEffect(() => {
+    const path = pathname();
+
+    if (path === '/') {
+        content.innerHTML = '<h1>Home Page</h1>';
+    } else if (path === '/about') {
+        content.innerHTML = '<h1>About Page</h1>';
+    } else {
+        content.innerHTML = '<h1>404 Not Found</h1>';
+    }
 });
 ```
 
-**Not intercepted:**
-- External links (different origin)
-- Links with `target="_blank"`
-- Links with `download` attribute
-- Non-HTTP protocols (mailto:, tel:, etc.)
-- Middle/right clicks
-- Ctrl/Cmd/Shift/Alt + click
-- Hash-only changes on same page
-
----
-
-## View Management
-
-### getCurrentView()
-
-Get the currently active view instance.
+### Example 3: Query Parameters
 
 ```javascript
-const currentView = router.getCurrentView();
-if (currentView) {
-  currentView.updateData(newData);
-}
-```
+import { useSearchParam, createEffect } from './framwork/index.js'
 
-### destroyCurrentView()
+const page = useSearchParam('page');
+const search = useSearchParam('search');
 
-Manually destroy the current view.
+createEffect(() => {
+    const currentPage = page() || '1';
+    const searchTerm = search() || '';
 
-```javascript
-router.destroyCurrentView();
-```
+    console.log(`Page ${currentPage}, searching for: ${searchTerm}`);
 
-**Note:** This is called automatically when navigating to a new route.
-
----
-
-## Context Management
-
-Share data between views and components using the context system.
-
-### storeValueInContext(name, value)
-
-Store a value in the router's context.
-
-```javascript
-router.storeValueInContext('user', { id: 1, name: 'Alice' });
-router.storeValueInContext('theme', 'dark');
-```
-
-**Parameters:**
-- `name` (String): Key to store value under
-- `value` (Any): Value to store
-
-### getvalueFromContext(name)
-
-Retrieve a value from context.
-
-```javascript
-const user = router.getvalueFromContext('user');
-const theme = router.getvalueFromContext('theme');
-```
-
-**Parameters:**
-- `name` (String): Key to retrieve
-
-**Returns:** Stored value or undefined
-
-### removeValueFromContext(name)
-
-Remove a specific value from context.
-
-```javascript
-router.removeValueFromContext('user');
-```
-
-### removeAllValuesFromContext()
-
-Clear all context values.
-
-```javascript
-router.removeAllValuesFromContext();
-```
-
----
-
-## Reactive Context
-
-Subscribe to context changes to reactively update your UI.
-
-### subscribe(key, callback)
-
-Listen for changes to a context value.
-
-```javascript
-router.subscribe('user', (user) => {
-  console.log('User changed:', user);
-  updateUserDisplay(user);
-});
-
-// Later, when you update context
-router.storeValueInContext('user', newUser);  // Triggers callback
-```
-
-**Parameters:**
-- `key` (String): Context key to watch
-- `callback` (Function): Called when value changes
-
----
-
-## Error Handling
-
-### setErrorHandler(handler)
-
-Set a custom error handler for routing errors.
-
-```javascript
-router.setErrorHandler((error) => {
-  console.error('Routing error:', error);
-  router.redirect('/error');
+    // Fetch data, update UI, etc.
 });
 ```
 
-### handleError(error)
-
-Manually trigger error handling.
+### Example 4: Programmatic Navigation
 
 ```javascript
-try {
-  someRiskyOperation();
-} catch (error) {
-  router.handleError(error);
-}
+import { useNavigate } from './framwork/index.js'
+
+const navigate = useNavigate();
+
+// Navigate to a new page
+button.onclick = () => navigate('/dashboard');
+
+// Replace current entry (e.g., after login)
+loginButton.onclick = () => {
+    // Do login...
+    navigate('/dashboard', true); // Replace, don't add to history
+};
 ```
 
----
+### Example 5: Conditional Rendering
+
+```javascript
+import { dom, usePathname } from './framwork/index.js'
+
+const pathname = usePathname();
+
+const app = dom({
+    tag: "div",
+    children: [
+        // Show admin panel only on /admin route
+        {
+            tag: "div",
+            attributes: {
+                style: () => pathname() === '/admin' ? '' : 'display: none;'
+            },
+            children: [/* Admin UI */]
+        },
+        // Show user panel on other routes
+        {
+            tag: "div",
+            attributes: {
+                style: () => pathname() !== '/admin' ? '' : 'display: none;'
+            },
+            children: [/* User UI */]
+        }
+    ]
+});
+```
+
+## How It Works
+
+### Link Click Interception
+
+The router intercepts clicks on `<a>` tags:
+
+```javascript
+// This navigates without full page reload
+<a href="/about">About</a>
+```
+
+Links are **NOT** intercepted if:
+
+- Hash-only change (e.g., `#/active` → lets browser handle it)
+- External link (different origin)
+- `target="_blank"` or download attribute
+- User holds Cmd/Ctrl/Shift/Alt
+
+### Hash Changes
+
+Hash changes are handled natively by the browser and tracked via `hashchange` event:
+
+```javascript
+// These just change the hash, browser handles navigation
+<a href="#/active">Active</a>
+<a href="#/completed">Completed</a>
+
+// Router updates the hash signal
+window.addEventListener('hashchange', () => {
+    this.#setHash(window.location.hash);
+});
+```
+
+### Reactive Updates
+
+```
+URL changes
+  ↓
+Router updates signals
+  ↓
+Effects re-run
+  ↓
+UI updates automatically
+```
+
+## What This Router Does NOT Have
+
+- ❌ Views/Components - Handle rendering yourself
+- ❌ Route matching (`:id`) - Use search params instead
+- ❌ Nested routes - Keep it simple
+- ❌ Route guards - Handle in your components
+- ❌ Lazy loading - Load what you need when you need it
+
+## Why So Simple?
+
+**The reactive system is powerful enough to handle routing logic.**
+
+```javascript
+// Instead of route params like /users/:id
+// Use search params: /users?id=123
+const userId = useSearchParam('id');
+
+// Instead of route guards
+createEffect(() => {
+    if (pathname() === '/admin' && !isAuthenticated()) {
+        navigate('/login', true);
+    }
+});
+
+// Instead of nested routes
+// Just render child components conditionally
+const content = dom({
+    tag: "div",
+    children: () => {
+        if (pathname() === '/users') {
+            return [/* User list */];
+        } else if (pathname().startsWith('/users/')) {
+            return [/* User detail */];
+        }
+        return [];
+    }
+});
+```
+
+## Benefits
+
+1. **Automatic UI Updates** - Change URL, UI updates automatically
+2. **No Boilerplate** - No route configs, just reactive signals
+3. **Flexible** - Build any routing pattern you want
+4. **Small** - ~145 lines of code
+5. **Fast** - Fine-grained updates, no re-rendering
 
 ## Complete Example
 
 ```javascript
-import { Router } from './router/router.js';
-import { dom } from './dom/dom.js';
+import { Router, dom, createEffect, usePathname, useHash, useNavigate } from './framwork/index.js'
 
-const router = Router.instance;
+// Initialize router
+Router.instance.initRouter();
 
-// Define views
-class HomePage {
-  render(data) {
-    const app = document.getElementById('app');
-    app.innerHTML = '';
-    app.appendChild(dom({
-      tag: 'div',
-      children: [
-        dom({ tag: 'h1', children: ['Home'] }),
-        dom({ 
-          tag: 'a', 
-          attributes: { href: '/about' },
-          children: ['Go to About']
-        })
-      ]
-    }));
-  }
-  destroy() {
-    console.log('Leaving home page');
-  }
-}
+// Get reactive state
+const pathname = usePathname();
+const hash = useHash();
+const navigate = useNavigate();
 
-class AboutPage {
-  render(data) {
-    const app = document.getElementById('app');
-    app.innerHTML = '';
-    app.appendChild(dom({
-      tag: 'div',
-      children: [
-        dom({ tag: 'h1', children: ['About'] }),
-        dom({ 
-          tag: 'a', 
-          attributes: { href: '/home' },
-          children: ['Go to Home']
-        })
-      ]
-    }));
-  }
-  destroy() {}
-}
-
-// Register routes
-router.addViewRoute('/home', HomePage);
-router.addViewRoute('/about', AboutPage);
-router.addViewRoute('/error', ErrorPage);
-
-// Setup event route
-router.addEventRoute('/logout', 'userLogout');
-
-eventEmitter.on('userLogout', () => {
-  router.removeValueFromContext('user');
-  router.redirect('/home');
+// Create navigation
+const nav = dom({
+    tag: "nav",
+    children: [
+        {
+            tag: "a",
+            attributes: {
+                href: "/",
+                class: () => pathname() === '/' ? 'active' : ''
+            },
+            children: ["Home"]
+        },
+        {
+            tag: "a",
+            attributes: {
+                href: "/about",
+                class: () => pathname() === '/about' ? 'active' : ''
+            },
+            children: ["About"]
+        }
+    ]
 });
 
-// Initialize
-router.initRouter();
+// Create content that reacts to route
+const content = dom({ tag: "div", children: [] });
+
+createEffect(() => {
+    const path = pathname();
+
+    if (path === '/') {
+        content.innerHTML = '<h1>Home</h1>';
+    } else if (path === '/about') {
+        content.innerHTML = '<h1>About</h1>';
+    } else {
+        content.innerHTML = '<h1>404</h1>';
+    }
+});
+
+// Add to page
+document.body.append(nav, content);
 ```
 
----
-
-## View Caching
-
-Control whether views are cached or recreated on each navigation.
-
-```javascript
-// View is destroyed and recreated each time (default)
-router.addViewRoute('/home', HomePage, true);
-
-// View is cached and reused
-router.addViewRoute('/profile', ProfilePage, false);
-```
-
-**When to cache:**
-- Heavy views that are expensive to create
-- Views that maintain state between navigations
-- Frequently visited pages
-
-**When not to cache:**
-- Views that need fresh data each time
-- Simple, lightweight views
-- Views with cleanup requirements
-
----
-
-## Navigation with Data
-
-Pass data between routes.
-
-```javascript
-// In source view
-router.redirect('/profile', { userId: 123, tab: 'settings' });
-
-// In ProfilePage view
-class ProfilePage {
-  render(data) {
-    console.log(data);  // { userId: 123, tab: 'settings' }
-    this.loadUserProfile(data.userId);
-    this.showTab(data.tab);
-  }
-  destroy() {}
-}
-```
-
----
-
-## Best Practices
-
-**Do:**
-- Call `initRouter()` once at app startup
-- Always implement both `render()` and `destroy()` in views
-- Clean up event listeners and timers in `destroy()`
-- Use context for global app state
-- Cache expensive views with `destroy: false`
-
-**Don't:**
-- Create multiple router instances
-- Forget to handle the /error route
-- Store large objects in context
-- Manipulate history directly (use `redirect()`)
-- Mix event routes and view routes on the same path
-
----
-
-## URL Handling
-
-The router automatically:
-- Normalizes URLs relative to the current page
-- Preserves query strings and hashes
-- Updates browser history
-- Supports back/forward buttons
-
-```javascript
-// All these work
-router.redirect('/about');
-router.redirect('about');
-router.redirect('/about?tab=1');
-router.redirect('/about#section');
-- [lean the framework](./README.md)
+That's it! Simple, reactive, powerful.
