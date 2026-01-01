@@ -78,7 +78,7 @@ function addTodo() {
   if (inputValue) {
     // Use batch for multiple updates
     batch(() => {
-      setTodos([...todos(), { text: inputValue, completed: false, id: Date.now() }]);
+      setTodos([...todos(), { text: inputValue, completed: fm.createSignal(false), id: Date.now() }]);
       todoInput.value = '';
     });
   }
@@ -92,7 +92,9 @@ function removeTodo(id) {
 function toggleTodo(id) {
   setTodos(todos().map(todo => {
     if (todo.id === id) {
-      return { ...todo, completed: !todo.completed };
+      const [completed, setCompleted] = todo.completed;
+      setCompleted(!completed());
+      return { ...todo, completed: [completed, setCompleted] };
     }
     return todo;
   }));
@@ -176,10 +178,12 @@ createEffect(() => {
 });
 
 function createTodoElement(todo) {
+  const [completed, setCompleted] = todo.completed;
+
   const li = dom({
     tag: "li",
     attributes: { 
-      class: todo.completed ? "completed" : "",
+      class: completed() ? "completed" : "",
       "data-testid": "todo-item"
     },
     children: [
@@ -193,8 +197,8 @@ function createTodoElement(todo) {
               class: "toggle",
               type: "checkbox",
               "data-testid": "todo-item-toggle",
-              ...(todo.completed ? { checked: "checked" } : {}),
-              onchange: () => toggleTodo(todo.id)
+              ...(completed() ? { checked: "checked" } : {}),
+              onchange: () => setCompleted(!completed())
             }
           },
           {
@@ -217,35 +221,13 @@ function createTodoElement(todo) {
       }
     ]
   });
-  
+
   // Watch for editing state changes
   createEffect(() => {
     const isEditing = editingId() === todo.id;
-    li.className = isEditing ? "editing" : (todo.completed ? "completed" : "");
+    li.className = isEditing ? "editing" : (completed() ? "completed" : "");
     if (isEditing) {
       li.setAttribute("data-testid", "todo-item");
-    }
-    
-    // Handle edit input
-    let editInput = li.querySelector('.edit');
-    if (isEditing && !editInput) {
-      const currentTodo = todos().find(t => t.id === todo.id) || todo;
-      editInput = dom({
-        tag: "input",
-        attributes: {
-          class: "edit",
-          value: currentTodo.text,
-          onblur: (e) => editTodo(todo.id, e.target.value),
-          onkeypress: (e) => {
-            if (e.nativeEvent.key === 'Enter') editTodo(todo.id, e.target.value);
-            if (e.nativeEvent.key === 'Escape') setEditingId(null);
-          }
-        }
-      });
-      li.appendChild(editInput);
-      editInput.focus();
-    } else if (!isEditing && editInput) {
-      editInput.remove();
     }
   });
 
