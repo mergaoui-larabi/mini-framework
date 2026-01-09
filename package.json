@@ -1,0 +1,20 @@
+{
+  "name": "reactive",
+  "version": "1.0.0",
+  "description": "A lightweight JavaScript framework for building reactive web applications.",
+  "main": "framework/index.js",
+  "exports": {
+    ".": "./framework/index.js"
+  },
+  "files": [
+    "framwork"
+  ],
+  "author": "mlarbi",
+  "keywords": [
+    "framework",
+    "router",
+    "state",
+    "dom"
+  ],
+  "license": "MIT"
+}

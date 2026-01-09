@@ -58,7 +58,7 @@ export class Router {
         if (!link) return;
         if (this.#canPreventDefault(event)) return;
 
-        const hrefAttr = link.getAttribute('href');
+        const hrefAttr = link.getARouterttribute('href');
         if (!hrefAttr) return;
         if (link.target && link.target !== '_self') return;
         if (link.hasAttribute('download')) return;
