@@ -7,4 +7,5 @@ export * from './router/router.js'
 export * from './router/useRouter.js'
 export * from './state/signal.js'
 export * from './dom/show.js'
+export * from './dom/for.js'
 export * from './router/router.js';

@@ -1,13 +1,9 @@
-import { valideHtmlNode } from "../libs/validate_html_node.js";
-import { validateDomNode, tagsMapAttributesSet } from "./tags.js";
 import { createEffect } from "../state/signal.js";
 import { eventManager } from "../event/event.js";
 
 const devMode = false;
 
 export function dom(node) {
-    // if (!valideHtmlNode(node)) return;
-    // if (devMode && !validateDomNode(node)) return;
 
     if (typeof node === "string") {
         return document.createTextNode(node ?? "");
@@ -127,7 +123,7 @@ function appendChildren(el, children = []) {
         });
         return;
     }
-
+    if (!Array.isArray(children)) { el.appendChild(document.createTextNode(children)); return }
     for (const child of children) {
         let childEl;
 
