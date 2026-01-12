@@ -10,6 +10,7 @@ Router.instance.initRouter();
 
 // Use router's hash signal for filter
 const hash = useHash();
+
 const filter = () => {
   const h = hash();
   if (h === '#/active') return 'active';

@@ -1,45 +1,87 @@
-import { createEffect, createSignal, dom, For } from "../../framwork/index.js";
+import { dom, Router, usePathname, useNavigate, Show } from "../../framwork/index.js";
 
-const [className, setClassName] = createSignal("red")
-const [arr, setArr] = createSignal([1, 2, 3, 4, 5])
+// Initialize the router
+Router.instance.initRouter();
 
-createEffect(() => {
-  if (className() === "blue") {
-    // setArr([...arr(), 0])
-  }
-})
-createEffect(() => {
-  if (className() === "red") {
-    setArr(arr().filter((i) => i !== 0))
-  }
-})
+// Get router hooks
+const pathname = usePathname();
+const navigate = useNavigate();
 
+// Simple route matching
+function Route({ path, children }) {
+  return Show({
+    when: () => pathname() === path,
+    children
+  });
+}
 
-
-const Map = dom({
+// Components
+const Home =  dom({
   tag: "div",
-  attributes: {
-    class: className,
-    style: () => `width: 100px; height: 100px; background-color: ${className()};`,
-    onClick: (e) => {
-      setClassName(className() === "red" ? "blue" : "red");
-      setArr([...arr(), arr().length + 1]);
+  children: [
+    { tag: "h1", children: ["Home Page"] },
+    { tag: "p", children: ["Welcome to the home page!"] }
+  ]
+});
+
+const About = dom({
+  tag: "div",
+  children: [
+    { tag: "h1", children: ["About Page"] },
+    { tag: "p", children: ["This is the about page."] }
+  ]
+});
+
+// Navigation component
+const Nav = dom({
+  tag: "nav",
+  children: [
+    {
+      tag: "a",
+      attributes: { href: "/" },
+      children: ["Home"]
+    },
+    " | ",
+    {
+      tag: "a",
+      attributes: { href: "/about" },
+      children: ["About"]
+    },
+    " | ",
+    {
+      tag: "button",
+      attributes: {
+        onclick: () => navigate("/contact")
+      },
+      children: ["Contact (programmatic)"]
     }
-  },
-  children: For(arr, (item) => ({
-    tag: "div",
-    attributes: {},
-    children: [item.toString()]
-  }))
-})
+  ]
+});
 
-// console.log(For(arr, (item) => ({
-//     tag: "div",
-//     attributes: {},
-//     children: () => item.value
-//   }))()
-// )
+// App component with routing
+const App = () => dom({
+  tag: "div",
+  children: [
+    // () => Nav(),
+    {
+      tag: "main",
+      children: [
+        () => Route({ path: "/", children: [Home] }),
+        () => Route({ path: "/about", children: [About] }),
+        () => Route({
+          path: "/contact", children: [
+            {
+              tag: "div",
+              children: [
+                { tag: "h1", children: ["Contact"] },
+                { tag: "p", children: ["Contact us here!"] }
+              ]
+            }
+          ]
+        })
+      ]
+    }
+  ]
+});
 
-
-
-document.body.appendChild(Map);
+document.body.appendChild(App());
